@@ -1,7 +1,7 @@
 import { createAgent, type TAgent} from '@veramo/core'
 import { Resolver } from 'did-resolver';
 
-import { getResolver as aaDidResolver } from '@mcp/shared';
+import { getResolver as aaDidResolver, AAKeyManagementSystem, CredentialIssuerEIP1271, AADidProvider } from '@mcp/shared';
 /*
 import dotenv from 'dotenv';
 import { BrowserProvider } from 'ethers'
@@ -76,10 +76,6 @@ import {
   MemoryDIDStore,
 } from '@veramo/did-manager';
 
-import { AAKeyManagementSystem } from  '@mcp/shared';
-import { CredentialIssuerEIP1271 } from '@mcp/shared';
-import { AADidProvider } from '@mcp/shared'; 
-
 
 export type CredentialJwtOrJSON = { proof: { jwt: string } } | Record<string, unknown>;
 export type CredentialStatus = { revoked: boolean };
@@ -116,31 +112,6 @@ const didProviders: Record<string, AADidProvider> = {
     }),
     */
 }
-/*
-const didProviders: Record<string, AbstractIdentifierProvider> = {
-    'did:pkh': new PkhDIDProvider({
-        defaultKms: 'web3'
-    }),
-    //'did:aa': new PkhDIDProvider({
-    //    defaultKms: 'local',
-    //    chainId: '1'
-    //}),
-    'did:ethr': new EthrDIDProvider({
-        defaultKms: 'local',
-        networks,
-    }),
-    'did:web': new WebDIDProvider({
-        defaultKms: 'local'
-    }),
-    'did:key': new KeyDIDProvider({ 
-        defaultKms: 'local' 
-    }),
-};
-
-const web3Providers: Record<string, BrowserProvider> = {}
-
-*/
-
 
 const aaKMS = new AAKeyManagementSystem(didProviders)
 

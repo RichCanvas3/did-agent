@@ -1,6 +1,6 @@
 import { createAgent } from '@veramo/core';
 import { Resolver } from 'did-resolver';
-import { getResolver as aaDidResolver } from '@mcp/shared';
+import { getResolver as aaDidResolver, AAKeyManagementSystem, CredentialIssuerEIP1271, AADidProvider } from '@mcp/shared';
 /*
 import dotenv from 'dotenv';
 import { BrowserProvider } from 'ethers'
@@ -62,9 +62,6 @@ import {
 import { DIDResolverPlugin } from '@veramo/did-resolver';
 import { KeyManager, MemoryKeyStore, MemoryPrivateKeyStore, } from '@veramo/key-manager';
 import { DIDManager, MemoryDIDStore, } from '@veramo/did-manager';
-import { AAKeyManagementSystem } from '@mcp/shared';
-import { CredentialIssuerEIP1271 } from '@mcp/shared';
-import { AADidProvider } from '@mcp/shared';
 const networks = [
     {
         name: 'optimism',
@@ -93,30 +90,6 @@ const didProviders = {
   }),
   */
 };
-/*
-const didProviders: Record<string, AbstractIdentifierProvider> = {
-    'did:pkh': new PkhDIDProvider({
-        defaultKms: 'web3'
-    }),
-    //'did:aa': new PkhDIDProvider({
-    //    defaultKms: 'local',
-    //    chainId: '1'
-    //}),
-    'did:ethr': new EthrDIDProvider({
-        defaultKms: 'local',
-        networks,
-    }),
-    'did:web': new WebDIDProvider({
-        defaultKms: 'local'
-    }),
-    'did:key': new KeyDIDProvider({
-        defaultKms: 'local'
-    }),
-};
-
-const web3Providers: Record<string, BrowserProvider> = {}
-
-*/
 const aaKMS = new AAKeyManagementSystem(didProviders);
 export const agent = createAgent({
     plugins: [

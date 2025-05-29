@@ -4,13 +4,25 @@
     "noUnusedLocals": false,      // ✅ suppress TS6133 for imports/variables
     "noUnusedParameters": false,   // ✅ suppress unused function parameters
     "jsx": "react-jsx",               // ✅ required for JSX
-    "moduleResolution": "node",
-    "types": ["vite/client", "react"]
+    "moduleResolution": "bundler",
+    "module": "ESNext",
+    "types": ["vite/client", "react"],
+    "composite": true,
+    "baseUrl": ".",
+    "rootDir": ".",
+    "paths": {
+      "@mcp/shared": ["../shared/src"],
+      "@mcp/shared/*": ["../shared/src/*"]
+    },
+    "allowImportingTsExtensions": true,
+    "allowJs": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "noEmit": true
   },
   "files": [],
   "references": [
-    { "path": "./tsconfig.app.json" },
-    { "path": "./tsconfig.node.json" }
+    { "path": "../shared" }
   ],
   "include": ["src"]
 }

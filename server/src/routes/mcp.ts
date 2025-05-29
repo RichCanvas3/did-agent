@@ -1,62 +1,64 @@
-import express, { Request, Response } from 'express'
+import express, { Request, Response, RequestHandler } from 'express'
 import { agent } from '../agents/veramoAgent.js'
 import sanitizeHtml from 'sanitize-html';
 
 const mcpRoutes: express.Router = express.Router()
 
-mcpRoutes.post('/', async (req: Request, res: Response) => {
+const handleMcpRequest: RequestHandler = (req, res) => {
   const { type, sender, payload } = req.body
-
 
   const challenge = 'hello world ....'
   if (type == 'PresentationRequest') {
-    return res.json({
+    res.json({
         type: 'Challenge',
         challenge: challenge
     })
+    return
   }
 
   if (type === 'AskForService') {
+    try {
+      console.info("received payload: ", JSON.stringify(payload, null, 2))
 
-    console.info("received payload: ", JSON.stringify(payload, null, 2))
+      const didHolder = sanitizeHtml(payload.presentation.holder as string)
+      console.info("did holder: ", didHolder)
 
-    const didHolder = sanitizeHtml(payload.presentation.holder as string)
-    console.info("did holder: ", didHolder)
-    //'did:ethr:0x1:0x9cfc7e44757529769a28747f86425c682fe64653'
-    //'did:ethr:0x1:0x9cfc7e44757529769a28747f86425c682fe64653'
-    //const didHolder = 'did:ethr:0x1:0x9cfc7e44757529769a28747f86425c682fe64653'
-    const result = await agent.resolveDid({
-        didUrl: didHolder
-    })
-    console.info("resolve did: ", result)
+      agent.resolveDid({
+          didUrl: didHolder
+      }).then(result => {
+        console.info("resolve did: ", result)
 
-
-    const presentation = payload.presentation
-    //if (presentation.proof.challenge == challenge) {
-        const verificationResult = await agent.verifyPresentationEIP1271({
+        const presentation = payload.presentation
+        return agent.verifyPresentationEIP1271({
             presentation
         })
+      }).then(verificationResult => {
         console.info("verification ............: ", verificationResult)
-    //}
-    //else {
-    //    console.info("verification challenge not correct: ", presentation.proof.challenge)
-    //}
+        
+        // Process request and respond with a PresentationRequest or VPs
+        console.info("done so return to client: ")
 
-
-    
-    // Process request and respond with a PresentationRequest or VPs
-    console.info("done so return to client: ")
-
-    return res.json({
-      type: 'ServiceList',
-      services: [
-        { name: 'Lawn Hero', location: 'Erie', rating: 4.8 },
-        { name: 'GreenCare Co', location: 'Erie', rating: 4.5 },
-      ],
-    })
+        res.json({
+          type: 'ServiceList',
+          services: [
+            { name: 'Lawn Hero', location: 'Erie', rating: 4.8 },
+            { name: 'GreenCare Co', location: 'Erie', rating: 4.5 },
+          ],
+        })
+      }).catch(error => {
+        console.error("Error processing request:", error)
+        res.status(500).json({ error: 'Internal server error' })
+      })
+    } catch (error) {
+      console.error("Error processing request:", error)
+      res.status(500).json({ error: 'Internal server error' })
+    }
+    return
   }
 
   res.status(400).json({ error: 'Unsupported MCP type' })
-})
+}
+
+mcpRoutes.post('/', handleMcpRequest)
 
 export default mcpRoutes

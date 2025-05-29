@@ -2,11 +2,16 @@
   "extends": "../tsconfig.base.json",
   "compilerOptions": {
     "declaration": true,
-    "module": "NodeNext",
-    "moduleResolution": "nodenext",
+    "declarationMap": true,
+    "module": "ESNext",
+    "moduleResolution": "bundler",
     "outDir": "dist",
     "rootDir": "src",
-    "target": "esnext"
+    "target": "esnext",
+    "composite": true,
+    "allowJs": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true
   },
   "include": ["src"]
 }
