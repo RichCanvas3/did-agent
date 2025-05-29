@@ -1,0 +1,11 @@
+{
+
+  "private": true,
+  "name": "my-mcp-app",
+  "scripts": {
+    "build": "pnpm -r --filter ./shared... run build && pnpm -r --filter ./client... run build && pnpm -r --filter ./server... run build"
+  },
+  "devDependencies": {
+    "typescript": "^5.0.0"
+  }
+}

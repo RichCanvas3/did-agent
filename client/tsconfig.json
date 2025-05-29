@@ -1,0 +1,16 @@
+{
+  "extends": "../tsconfig.base.json",
+  "compilerOptions": {
+    "noUnusedLocals": false,      // ✅ suppress TS6133 for imports/variables
+    "noUnusedParameters": false,   // ✅ suppress unused function parameters
+    "jsx": "react-jsx",               // ✅ required for JSX
+    "moduleResolution": "node",
+    "types": ["vite/client", "react"]
+  },
+  "files": [],
+  "references": [
+    { "path": "./tsconfig.app.json" },
+    { "path": "./tsconfig.node.json" }
+  ],
+  "include": ["src"]
+}

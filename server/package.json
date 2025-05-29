@@ -1,0 +1,39 @@
+{
+  "name": "server",
+  "version": "1.0.0",
+  "type": "module",
+  "main": "src/index.ts",
+  "scripts": {
+    "dev": "npx tsx src/index.ts",
+    "build": "tsc -b"
+  },
+  "dependencies": {
+    "@blockchain-lab-um/masca-connector": "^1.4.0",
+    "@mcp/shared": "workspace:*",
+    "@veramo/core": "^6.0.0",
+    "@veramo/did-manager": "^6.0.0",
+    "@veramo/did-provider-ethr": "^6.0.0",
+    "@veramo/did-provider-web": "^6.0.0",
+    "@veramo/kms-local": "^6.0.0",
+    "cors": "^2.8.5",
+    "dompurify": "^3.2.6",
+    "dotenv": "^16.5.0",
+    "express": "^4.18.2",
+    "sanitize-html": "^2.17.0",
+    "web-did-resolver": "^2.0.30"
+  },
+  "devDependencies": {
+    "@types/cors": "^2.8.18",
+    "@types/dompurify": "^3.2.0",
+    "@types/express": "^5.0.2",
+    "@types/sanitize-html": "^2.16.0",
+    "ts-node": "^10.9.2"
+  },
+  "ts-node": {
+    "compilerOptions": {
+      "module": "NodeNext",
+      "moduleResolution": "nodenext"
+    },
+    "esm": true
+  }
+}

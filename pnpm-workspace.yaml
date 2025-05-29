@@ -1,0 +1,7 @@
+packages:
+  - 'client'
+  - 'server'
+  - 'shared'
+ignoredBuiltDependencies:
+  - esbuild
+  - secp256k1
