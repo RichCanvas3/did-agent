@@ -53,13 +53,13 @@ pnpm run build
 1. Start the development server:
 ```bash
 cd server
-pnpm run dev
+npx tsx src/index.ts
 ```
 
 2. In another terminal, start the client:
 ```bash
 cd client
-pnpm run dev
+pnpm dev
 ```
 
 ## Environment Variables

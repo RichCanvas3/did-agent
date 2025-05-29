@@ -9,6 +9,7 @@ const handleMcpRequest: RequestHandler = (req, res) => {
 
   const challenge = 'hello world ....'
   if (type == 'PresentationRequest') {
+    console.info("----------> received presentation request and returning challenge")
     res.json({
         type: 'Challenge',
         challenge: challenge
@@ -18,33 +19,40 @@ const handleMcpRequest: RequestHandler = (req, res) => {
 
   if (type === 'AskForService') {
     try {
-      console.info("received payload: ", JSON.stringify(payload, null, 2))
+      console.info("----------> received client request with verifiable presentation ")
 
       const didHolder = sanitizeHtml(payload.presentation.holder as string)
-      console.info("did holder: ", didHolder)
+
+      console.info("client did: ", didHolder)
 
       agent.resolveDid({
           didUrl: didHolder
       }).then(result => {
-        console.info("resolve did: ", result)
+
+        console.info("client did document: ", result)
 
         const presentation = payload.presentation
+
         return agent.verifyPresentationEIP1271({
             presentation
         })
       }).then(verificationResult => {
-        console.info("verification ............: ", verificationResult)
-        
-        // Process request and respond with a PresentationRequest or VPs
-        console.info("done so return to client: ")
 
-        res.json({
-          type: 'ServiceList',
-          services: [
-            { name: 'Lawn Hero', location: 'Erie', rating: 4.8 },
-            { name: 'GreenCare Co', location: 'Erie', rating: 4.5 },
-          ],
-        })
+        console.info("are we good here?: ", verificationResult)
+        if (verificationResult) {
+          console.info("client is verified, lets process the request ")
+
+          res.json({
+            type: 'ServiceList',
+            services: [
+              { name: 'Lawn Hero', location: 'Erie', rating: 4.8 },
+              { name: 'GreenCare Co', location: 'Erie', rating: 4.5 },
+            ],
+          })
+        } else {
+          res.status(500).json({ error: 'verifiable presentation is not valid' })
+        }
+        
       }).catch(error => {
         console.error("Error processing request:", error)
         res.status(500).json({ error: 'Internal server error' })
