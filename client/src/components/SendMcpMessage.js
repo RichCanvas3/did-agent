@@ -9,7 +9,7 @@ import { createPimlicoClient } from "permissionless/clients/pimlico";
 import { BUNDLER_URL, PAYMASTER_URL } from "../config";
 import { createBundlerClient, createPaymasterClient, } from "viem/account-abstraction";
 import { Implementation, toMetaMaskSmartAccount, } from "@metamask/delegation-toolkit";
-import { KmsAASigner } from '@mcp/shared';
+import { AAKmsSigner } from '@mcp/shared';
 export const SendMcpMessage = () => {
     const [response, setResponse] = useState(null);
     const [loading, setLoading] = useState(false);
@@ -150,7 +150,7 @@ export const SendMcpMessage = () => {
             console.info("didDoc: ", didDoc);
             // @ts-ignore
             const signerAAVC = {
-                // Required properties for KmsAASigner interface
+                // Required properties for AAKmsSigner interface
                 //context: undefined,
                 //controllerKey: undefined,
                 //provider: undefined,
@@ -201,7 +201,7 @@ export const SendMcpMessage = () => {
             const challenge1 = "hello world";
             // @ts-ignore
             const signerAAVP = {
-                // Required properties for KmsAASigner interface
+                // Required properties for AAKmsSigner interface
                 //context: undefined,
                 //controllerKey: undefined,
                 //provider: undefined,

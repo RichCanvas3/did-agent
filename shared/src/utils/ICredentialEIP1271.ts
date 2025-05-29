@@ -12,7 +12,7 @@ import {
   type VerifiablePresentation,
 } from '@veramo/core-types'
 
-import { type KmsAASigner } from './KmsAASigner.js'
+import { type AAKmsSigner } from './AAKmsSigner.js'
 
 
 export interface ICredentialIssuerEIP1271 extends IPluginMethodMap {
@@ -37,13 +37,13 @@ export interface ICredentialIssuerEIP1271 extends IPluginMethodMap {
 export interface ICreateVerifiableCredentialEIP1271Args extends UsingResolutionOptions {
   credential: CredentialPayload
   keyRef?: string
-  signer?: KmsAASigner
+  signer?: AAKmsSigner
 }
 
 export interface ICreateVerifiablePresentationEIP1271Args extends UsingResolutionOptions {
   presentation: PresentationPayload
   keyRef?: string
-  signer?: KmsAASigner
+  signer?: AAKmsSigner
 }
 
 export interface IVerifyCredentialEIP1271Args extends UsingResolutionOptions {

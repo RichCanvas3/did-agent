@@ -20,7 +20,7 @@ type IRequiredContext = IAgentContext<IKeyManager>
  *
  * @internal This is exported for convenience, not meant to be supported as part of the public API
  */
-export class KmsAASigner extends AbstractSigner {
+export class AAKmsSigner extends AbstractSigner {
   private context: IRequiredContext
   private controllerKey: IKey
   readonly provider: Provider | null
@@ -82,14 +82,14 @@ export class KmsAASigner extends AbstractSigner {
   }
 
   signMessage(message: string | Uint8Array): Promise<string> {
-    throw new Error('not_implemented: signMessage() Method not implemented by KmsAASigner.')
+    throw new Error('not_implemented: signMessage() Method not implemented by AAKmsSigner.')
   }
 
   connect(provider: Provider | null) {
     if(!provider) {
       throw new Error('provider must not be null')
     }
-    return new KmsAASigner(this.controllerKey, this.context, provider) as unknown as Signer
+    return new AAKmsSigner(this.controllerKey, this.context, provider) as unknown as Signer
   }
 }
 /*

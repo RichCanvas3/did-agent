@@ -24,7 +24,7 @@ import {
   type ToMetaMaskSmartAccountReturnType,
 } from "@metamask/delegation-toolkit";
 
-import { KmsAASigner } from '@mcp/shared';
+import { AAKmsSigner } from '@mcp/shared';
 
 export const SendMcpMessage: React.FC = () => {
 
@@ -216,8 +216,8 @@ export const SendMcpMessage: React.FC = () => {
 
 
         // @ts-ignore
-        const signerAAVC: KmsAASigner = {
-            // Required properties for KmsAASigner interface
+        const signerAAVC: AAKmsSigner = {
+            // Required properties for AAKmsSigner interface
             //context: undefined,
             //controllerKey: undefined,
             //provider: undefined,
@@ -284,8 +284,8 @@ export const SendMcpMessage: React.FC = () => {
         const challenge1 = "hello world"
 
         // @ts-ignore
-        const signerAAVP: KmsAASigner = {
-            // Required properties for KmsAASigner interface
+        const signerAAVP: AAKmsSigner = {
+            // Required properties for AAKmsSigner interface
             //context: undefined,
             //controllerKey: undefined,
             //provider: undefined,
