@@ -89,6 +89,7 @@ export type CredentialStatus = { revoked: boolean };
 
 import type { IKey, TKeyType, IDIDManager, ICredentialIssuer, ICredentialVerifier,  IResolver, IDataStore, IKeyManager, VerifiableCredential, IVerifyResult } from '@veramo/core';
 
+/*
 const networks: Array<{ name: string; chainId: string; rpcUrl: string; registry: string }> = [
     {
         name: 'optimism',
@@ -102,7 +103,14 @@ const networks: Array<{ name: string; chainId: string; rpcUrl: string; registry:
         rpcUrl: '', //`${import.meta.env.VITE_MAINNET_RPC_URL}`,
         registry: '0xdCa7EF03e98e0DC2B855bE647C39ABe984fcF21B',
     },
+    {
+        name: 'sepolia',
+        chainId: '11155111',
+        rpcUrl: '', //`${import.meta.env.VITE_SEPOLIA_RPC_URL}`,
+        registry: '0xdCa7EF03e98e0DC2B855bE647C39ABe984fcF21B',
+    },
 ];
+*/
 
 const didProviders: Record<string, AADidProvider> = {
   /*

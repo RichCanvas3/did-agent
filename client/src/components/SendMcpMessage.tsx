@@ -6,17 +6,20 @@ import {
   type TypedDataField,
 } from 'ethers'
 
-import { mainnet } from "viem/chains";
+import { sepolia } from "viem/chains";
 import { createPublicClient, createWalletClient, http, custom, zeroAddress, toHex, type Address, encodeFunctionData, hashMessage } from "viem";
 import {  agent } from '../agents/veramoAgent';
 
-import { createPimlicoClient } from "permissionless/clients/pimlico";
+import { erc7710BundlerActions } from "@metamask/delegation-toolkit/experimental";
+
+import {
+    createBundlerClient,
+    createPaymasterClient,
+    UserOperationReceipt,
+  } from "viem/account-abstraction";
+  import { createPimlicoClient } from "permissionless/clients/pimlico";
 
 import {BUNDLER_URL, PAYMASTER_URL} from "../config";
-import {
-  createBundlerClient,
-  createPaymasterClient,
-} from "viem/account-abstraction";
 
 import {
   Implementation,
@@ -24,14 +27,20 @@ import {
   type ToMetaMaskSmartAccountReturnType,
 } from "@metamask/delegation-toolkit";
 
+import { erc7715ProviderActions } from "@metamask/delegation-toolkit/experimental";
+
 import { AAKmsSigner } from '@mcp/shared';
+
+// EntryPoint v0.6 address
+const ENTRYPOINT_ADDRESS = "0x5FF137D4b0FDCD49DcA30c7CF57E578a026d2789" as const;
+const ENTRYPOINT_ADDRESS_SEPOLIA = "0x5FF137D4b0FDCD49DcA30c7CF57E578a026d2789" as const;
 
 export const SendMcpMessage: React.FC = () => {
 
   const [response, setResponse] = useState<any>(null);
   const [loading, setLoading] = useState(false);
 
-  const chain = mainnet;
+  const chain = sepolia;
 
   const provider = (window as any).ethereum;
   const login = async () => {
@@ -52,22 +61,23 @@ export const SendMcpMessage: React.FC = () => {
         method: "eth_requestAccounts",
     })) as Address[];
 
+
     const walletClient = createWalletClient({
         chain,
         transport: custom(provider),
         account: owner,
-    });
+    }) as any;
 
-
+    const walletClientWithDelegation = walletClient.extend(erc7715ProviderActions());
 
     return {
         owner,
-        signatory: { walletClient},
+        signatory: { walletClient: walletClientWithDelegation },
     };
   };
 
 
-  const getOrgAccount = async(owner: any, signatory: any, publicClient: any) : Promise<ToMetaMaskSmartAccountReturnType<Implementation.Hybrid> | undefined> => {
+  const getOrgAccount = async(owner: any, signatory: any, publicClient: any) : Promise<any> => {
     
     const seed = 10000
 
@@ -78,9 +88,25 @@ export const SendMcpMessage: React.FC = () => {
         deployParams: [owner, [], [], []],
         signatory: signatory,
         deploySalt: toHex(seed),
+        //chain: chain
     });
 
+    return accountClient
+}
 
+const getSessionAccount = async(owner: any, signatory: any, publicClient: any) : Promise<any> => {
+    
+    const seed = 100001
+
+    // build individuals AA for EOA Connected Wallet
+    const accountClient = await toMetaMaskSmartAccount({
+        client: publicClient,
+        implementation: Implementation.Hybrid,
+        deployParams: [owner, [], [], []],
+        signatory: signatory,
+        deploySalt: toHex(seed),
+        //chain: chain
+    });
 
     return accountClient
 }
@@ -90,66 +116,66 @@ export const SendMcpMessage: React.FC = () => {
   const handleSend = async () => {
     setLoading(true);
     try {
-
         const loginResp = await login()
-        
-
-
-
-
-
-
-
-
-
 
         // get aa account
         const publicClient = createPublicClient({
-          chain: chain,
+          chain: sepolia,
           transport: http(),
         });
         const orgAccountClient = await getOrgAccount(loginResp.owner, loginResp.signatory, publicClient)
-        const isDeployed = await orgAccountClient?.isDeployed()
-        if (isDeployed == false) {
+        
+        // Ensure account is properly initialized
+        if (!orgAccountClient || !orgAccountClient.address) {
+            throw new Error("Failed to initialize account client");
+        }
 
-            const pimlicoClient = createPimlicoClient({
+
+        const pimlicoClient = createPimlicoClient({
             transport: http(BUNDLER_URL),
-            });
-            const paymasterClient = createPaymasterClient({
-                transport: http(PAYMASTER_URL),
-            });
-            const bundlerClient = createBundlerClient({
-                            transport: http(BUNDLER_URL),
-                            paymaster: paymasterClient,
-                            chain: chain,
-                            paymasterContext: {
+          });
+        const paymasterClient = createPaymasterClient({
+            transport: http(PAYMASTER_URL),
+        });
+        const bundlerClient = createBundlerClient({
+                        transport: http(BUNDLER_URL),
+                        paymaster: paymasterClient,
+                        chain: sepolia,
+                        paymasterContext: {
                             // at minimum this must be an object; for Biconomy you can use:
                             mode:             'SPONSORED',
                             //calculateGasLimits: true,
                             //expiryDuration:  300,
-                            },
-                        });
+                        },
+                    }).extend(erc7710BundlerActions());
 
+
+
+        const isDeployed = await orgAccountClient?.isDeployed()
+        console.info("************* isDeployed: ", isDeployed)
+        if (isDeployed == false) {
 
             const { fast: fee } = await pimlicoClient.getUserOperationGasPrice();
             const userOperationHash = await bundlerClient!.sendUserOperation({
-                account: orgAccountClient as any,
-                calls: [
-                    {
-                    to: zeroAddress,
-                    },
-                ],
-                paymaster: paymasterClient,
-                ...fee,
+            account: orgAccountClient,
+            calls: [
+                {
+                to: zeroAddress,
+                },
+            ],
+            paymaster: paymasterClient,
+            ...fee,
             });
 
+            console.info("send user operation - done")
             const { receipt } = await bundlerClient!.waitForUserOperationReceipt({
-                hash: userOperationHash,
+            hash: userOperationHash,
             });
+
         }
 
         const orgAddress = orgAccountClient?.address.toLowerCase()
-        const orgDid = "did:aa:eip155:1:" + orgAddress
+        const orgDid = "did:aa:eip155:" + chain.id + ":" + orgAddress
 
 
         // get agent available methods, this is a capability demonstration
@@ -190,7 +216,87 @@ export const SendMcpMessage: React.FC = () => {
         const identifier = await agent.didManagerGet({ did: orgDid });
         console.info("org did identifier: ", identifier)
 
+        // add permissions to orgAccountClient
+        
+        const expiry = Math.floor(Date.now() / 1000 + 604_800); // 1 week from now.
+        const currentTime = Math.floor(Date.now() / 1000); // now
 
+        const sessionAccount = await getSessionAccount(loginResp.owner, loginResp.signatory, publicClient)
+        const sessionIsDeployed = await sessionAccount?.isDeployed()
+        console.info("************* sessionIsDeployed: ", sessionIsDeployed)
+        if (sessionIsDeployed == false) {
+
+            const { fast: fee } = await pimlicoClient.getUserOperationGasPrice();
+            const userOperationHash = await bundlerClient!.sendUserOperation({
+                account: sessionAccount,
+                calls: [
+                    {
+                    to: zeroAddress,
+                    },
+                ],
+                paymaster: paymasterClient,
+                ...fee,
+                });
+
+                console.info("send user operation - done")
+                const { receipt } = await bundlerClient!.waitForUserOperationReceipt({
+                hash: userOperationHash,
+            });
+
+        }
+        console.info("granting permissions for session account client: ", sessionAccount)
+        const grantedPermissions = await loginResp.signatory.walletClient.grantPermissions([{
+            chainId: chain.id,
+            expiry,
+            signer: {
+                type: "account",
+                data: {
+                address: sessionAccount.address,
+                },
+            },
+            permission: {
+                type: "native-token-stream",
+            //isAdjustmentAllowed: true,
+                data: {
+                initialAmount: 1n, // 1 wei
+                amountPerSecond: 1n, // 1 wei per second
+                maxAmount: 10n, // 10 wei
+                startTime: currentTime,
+                justification: "Payment for a week long subscription",
+                },
+            },
+        }]);
+        console.info("granted permissions: ", grantedPermissions)
+
+        const permissionsContext = grantedPermissions[0].context;
+        const delegationManager = grantedPermissions[0].signerMeta.delegationManager;
+        const accountMetadata = grantedPermissions[0].accountMeta;
+
+
+        console.info("send user operation")
+        const { fast: fee } = await pimlicoClient.getUserOperationGasPrice();
+        const userOperationHash = await bundlerClient!.sendUserOperationWithDelegation({
+            publicClient,
+            account: sessionAccount,
+            calls: [
+              {
+                to: sessionAccount.address,
+                data: "0x",
+                value: 1n,
+                permissionsContext,
+                delegationManager,
+              },
+            ],
+            // Appropriate values must be used for fee-per-gas. 
+            paymaster: paymasterClient,
+            accountMetadata,
+            ...fee,
+          });
+        const { receipt } = await bundlerClient!.waitForUserOperationReceipt({
+            hash: userOperationHash,
+          });
+        
+          console.info("transaction receipt: ", receipt)
 
 
         // get challenge from server

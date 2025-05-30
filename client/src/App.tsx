@@ -17,7 +17,7 @@ log('🔍 Veramo debug is working!')
 function App() {
   return (
     <div>
-      <h1>My MCP Client</h1>
+      <h1>My MCP Client = did:aa</h1>
       <SendMcpMessage />
     </div>
   );

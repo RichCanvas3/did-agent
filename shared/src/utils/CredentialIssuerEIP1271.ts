@@ -45,7 +45,7 @@ import {
 
 import { TypedDataEncoder,  } from 'ethers'
 import { createPublicClient, http,  encodeFunctionData,  } from "viem";
-import { optimism, mainnet } from "viem/chains";
+import { optimism, mainnet, sepolia } from "viem/chains";
 
 import { getEthTypesFromInputDoc } from 'eip-712-types-generation'
 
@@ -127,7 +127,7 @@ export class CredentialIssuerEIP1271 implements IAgentPlugin {
     try {
       chainId = aaDidParts.chainId
     } catch (e) {
-      chainId = 1
+      chainId = 11155111
     }
 
     // point to a DID controller that supports smart contract-based signature verification
@@ -228,7 +228,7 @@ export class CredentialIssuerEIP1271 implements IAgentPlugin {
     try {
       chainId = aaDidParts.chainId
     } catch (e) {
-      chainId = 1
+      chainId = 11155111
     }
 
 
@@ -309,7 +309,7 @@ export class CredentialIssuerEIP1271 implements IAgentPlugin {
         });
     
     const publicClient = createPublicClient({
-              chain: mainnet,
+              chain: sepolia,
               transport: http(),
             });
 
@@ -335,7 +335,7 @@ export class CredentialIssuerEIP1271 implements IAgentPlugin {
     });
 
     if (!isValidSignature?.startsWith('0x1626ba7e')) {
-      console.info("Signature is valid according to EIP-1271")
+      console.info("********** Signature is not valid according to EIP-1271")
       return false
     }
     console.info("signature is valid according to EIP-1271")
@@ -412,7 +412,7 @@ export class CredentialIssuerEIP1271 implements IAgentPlugin {
         });
     
     const publicClient = createPublicClient({
-              chain: mainnet,
+              chain: sepolia,
               transport: http(),
             });
 
@@ -439,7 +439,8 @@ export class CredentialIssuerEIP1271 implements IAgentPlugin {
     });
 
     if (!isValidSignature?.startsWith('0x1626ba7e')) {
-      console.info("Signature is valid according to EIP-1271")
+      console.info("*********** Signature is not valid according to EIP-1271")
+      console.info("isValidSignature: ", isValidSignature)
       return false
     }
 
