@@ -6,8 +6,9 @@ import {
   type TypedDataField,
 } from 'ethers'
 
+
 import { sepolia } from "viem/chains";
-import { createPublicClient, createWalletClient, http, custom, zeroAddress, toHex, type Address, encodeFunctionData, hashMessage } from "viem";
+import { createPublicClient, createWalletClient, http, createClient, custom, parseEther, zeroAddress, toHex, type Address, encodeFunctionData, hashMessage } from "viem";
 import {  agent } from '../agents/veramoAgent';
 
 import { erc7710BundlerActions } from "@metamask/delegation-toolkit/experimental";
@@ -62,13 +63,17 @@ export const SendMcpMessage: React.FC = () => {
     })) as Address[];
 
 
+    /*
     const walletClient = createWalletClient({
         chain,
         transport: custom(provider),
         account: owner,
     }) as any;
+    */
 
-    const walletClientWithDelegation = walletClient.extend(erc7715ProviderActions());
+    const walletClientWithDelegation = createClient({
+        transport: custom((window as any).ethereum),
+      }).extend(erc7715ProviderActions());
 
     return {
         owner,
@@ -218,8 +223,7 @@ const getSessionAccount = async(owner: any, signatory: any, publicClient: any) :
 
         // add permissions to orgAccountClient
         
-        const expiry = Math.floor(Date.now() / 1000 + 604_800); // 1 week from now.
-        const currentTime = Math.floor(Date.now() / 1000); // now
+
 
         const sessionAccount = await getSessionAccount(loginResp.owner, loginResp.signatory, publicClient)
         const sessionIsDeployed = await sessionAccount?.isDeployed()
@@ -244,6 +248,11 @@ const getSessionAccount = async(owner: any, signatory: any, publicClient: any) :
             });
 
         }
+
+        const currentTime = Math.floor(Date.now() / 1000);
+        const oneDayInSeconds = 24 * 60 * 60;
+        const expiry = currentTime + oneDayInSeconds;
+
         console.info("granting permissions for session account client: ", sessionAccount)
         const grantedPermissions = await loginResp.signatory.walletClient.grantPermissions([{
             chainId: chain.id,
@@ -256,47 +265,61 @@ const getSessionAccount = async(owner: any, signatory: any, publicClient: any) :
             },
             permission: {
                 type: "native-token-stream",
-            //isAdjustmentAllowed: true,
                 data: {
-                initialAmount: 1n, // 1 wei
-                amountPerSecond: 1n, // 1 wei per second
-                maxAmount: 10n, // 10 wei
-                startTime: currentTime,
-                justification: "Payment for a week long subscription",
+                    initialAmount: BigInt(1e15), 
+                    amountPerSecond: BigInt(1e15), 
+                    maxAmount: parseEther("0.1"),
+                    startTime: currentTime,
+                    justification: "Payment for a week long subscription",
                 },
             },
         }]);
         console.info("granted permissions: ", grantedPermissions)
 
-        const permissionsContext = grantedPermissions[0].context;
-        const delegationManager = grantedPermissions[0].signerMeta.delegationManager;
-        const accountMetadata = grantedPermissions[0].accountMeta;
+        const permission = grantedPermissions[0]
+        const { accountMeta, context, signerMeta } = permission;
 
+        console.log('context in RedeemDelegation.tsx:', context);
+        console.log('accountMeta in RedeemDelegation.tsx:', accountMeta);
+        console.log('signerMeta in RedeemDelegation.tsx:', signerMeta);
+  
+        if (!signerMeta) {
+          console.error("No signer meta found");
+          setLoading(false);
+          return;
+        }
+        const { delegationManager } = signerMeta;
 
-        console.info("send user operation")
-        const { fast: fee } = await pimlicoClient.getUserOperationGasPrice();
-        const userOperationHash = await bundlerClient!.sendUserOperationWithDelegation({
-            publicClient,
-            account: sessionAccount,
-            calls: [
-              {
-                to: sessionAccount.address,
-                data: "0x",
-                value: 1n,
-                permissionsContext,
-                delegationManager,
-              },
-            ],
-            // Appropriate values must be used for fee-per-gas. 
-            paymaster: paymasterClient,
-            accountMetadata,
-            ...fee,
-          });
-        const { receipt } = await bundlerClient!.waitForUserOperationReceipt({
-            hash: userOperationHash,
-          });
-        
-          console.info("transaction receipt: ", receipt)
+        if (delegationManager) {
+
+            console.info("send user operation")
+            const { fast: fee } = await pimlicoClient.getUserOperationGasPrice();
+            const nonce = await sessionAccount.getNonce();
+            const userOperationHash = await bundlerClient!.sendUserOperationWithDelegation({
+                publicClient,
+                account: sessionAccount,
+                nonce,
+                calls: [
+                {
+                    to: sessionAccount.address,
+                    data: "0x",
+                    value: 1n,
+                    permissionsContext: context,
+                    delegationManager,
+                },
+                ],
+                // Appropriate values must be used for fee-per-gas. 
+                //paymaster: paymasterClient,
+                ...fee,
+                accountMetadata: accountMeta,
+                
+            });
+            const { receipt } = await bundlerClient!.waitForUserOperationReceipt({
+                hash: userOperationHash,
+            });
+            
+            console.info("transaction receipt: ", receipt)
+        }
 
 
         // get challenge from server
