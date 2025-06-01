@@ -1,4 +1,6 @@
 // src/components/SendMcpMessage.tsx
+
+
 import React, { useState } from 'react';
 
 import {
@@ -77,13 +79,11 @@ export const SendMcpMessage: React.FC = () => {
   const getClientSubscriberSmartAccount = async(owner: any, signatory: any, publicClient: any) : Promise<any> => {
     
     const accountClient = await toMetaMaskSmartAccount({
-        address: clientSubscriberSmartAddress,
-        client: publicClient,
+        address: clientSubscriberSmartAddress as `0x${string}`,
+        client: publicClient as any,
         implementation: Implementation.Hybrid,
-        deployParams: [owner, [], [], []],
-        signatory: signatory,
-        //deploySalt: toHex(seed),
-        //chain: chain
+        signatory: signatory as any,
+        deploySalt: "0x0000000000000000000000000000000000000000000000000000000000000001"
     });
 
     return accountClient
@@ -501,9 +501,9 @@ export const SendMcpMessage: React.FC = () => {
 
   return (
     <div style={{ padding: 20 }}>
-      <h2>Ask For Lawn Care Service</h2>
+      <h2>Gator Lawn Service</h2>
       <button onClick={handleSend} disabled={loading}>
-        {loading ? 'Sending...' : 'Send MCP Message'}
+        {loading ? 'Sending...' : 'Send MCP Lawn Service Request and Payment'}
       </button>
 
       {response && (
