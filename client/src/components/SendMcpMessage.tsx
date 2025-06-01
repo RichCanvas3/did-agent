@@ -11,30 +11,33 @@ import { sepolia } from "viem/chains";
 import { createPublicClient, createWalletClient, http, createClient, custom, parseEther, zeroAddress, toHex, type Address, encodeFunctionData, hashMessage } from "viem";
 import {  agent } from '../agents/veramoAgent';
 
+import {
+    Implementation,
+    MetaMaskSmartAccount,
+    toMetaMaskSmartAccount,
+    getDeleGatorEnvironment,
+    overrideDeployedEnvironment
+  } from "@metamask/delegation-toolkit";
+
 import { erc7710BundlerActions } from "@metamask/delegation-toolkit/experimental";
+import { erc7715ProviderActions } from "@metamask/delegation-toolkit/experimental";
 
 import {
     createBundlerClient,
     createPaymasterClient,
     UserOperationReceipt,
   } from "viem/account-abstraction";
-  import { createPimlicoClient } from "permissionless/clients/pimlico";
+
+import { createPimlicoClient } from "permissionless/clients/pimlico";
+
 
 import {BUNDLER_URL, PAYMASTER_URL} from "../config";
 
-import {
-  Implementation,
-  toMetaMaskSmartAccount,
-  type ToMetaMaskSmartAccountReturnType,
-} from "@metamask/delegation-toolkit";
 
-import { erc7715ProviderActions } from "@metamask/delegation-toolkit/experimental";
+
 
 import { AAKmsSigner } from '@mcp/shared';
 
-// EntryPoint v0.6 address
-const ENTRYPOINT_ADDRESS = "0x5FF137D4b0FDCD49DcA30c7CF57E578a026d2789" as const;
-const ENTRYPOINT_ADDRESS_SEPOLIA = "0x5FF137D4b0FDCD49DcA30c7CF57E578a026d2789" as const;
 
 export const SendMcpMessage: React.FC = () => {
 
@@ -63,17 +66,19 @@ export const SendMcpMessage: React.FC = () => {
     })) as Address[];
 
 
-    /*
     const walletClient = createWalletClient({
-        chain,
+        chain: sepolia,
         transport: custom(provider),
-        account: owner,
-    }) as any;
-    */
+        account: owner as `0x${string}`
+    });
 
-    const walletClientWithDelegation = createClient({
-        transport: custom((window as any).ethereum),
-      }).extend(erc7715ProviderActions());
+    const walletClientWithDelegation = walletClient.extend((client) => ({
+        ...erc7715ProviderActions()(client as any),
+        signTypedData: walletClient.signTypedData
+    })) as any;
+
+    console.info("........> wallet address: ", owner)
+
 
     return {
         owner,
@@ -84,15 +89,18 @@ export const SendMcpMessage: React.FC = () => {
 
   const getOrgAccount = async(owner: any, signatory: any, publicClient: any) : Promise<any> => {
     
+
+
     const seed = 10000
 
     // build individuals AA for EOA Connected Wallet
     const accountClient = await toMetaMaskSmartAccount({
+        address: "0x383668f69e39c5D9Dcb2B4b46112de6D2D727905",
         client: publicClient,
         implementation: Implementation.Hybrid,
         deployParams: [owner, [], [], []],
         signatory: signatory,
-        deploySalt: toHex(seed),
+        //deploySalt: toHex(seed),
         //chain: chain
     });
 
@@ -101,7 +109,24 @@ export const SendMcpMessage: React.FC = () => {
 
 const getSessionAccount = async(owner: any, signatory: any, publicClient: any) : Promise<any> => {
     
-    const seed = 100001
+    const seed = 1
+
+    /*
+    const environment = getDeleGatorEnvironment(sepolia.id);
+    // console.log("Environment: ", environment);
+
+    const hybridDeleGatorImpl = '0xF2846032bD52dd42FFfe639eCcd9B50777BDCc9D'
+    const customEnv: any = { ...environment, implementations: { ...environment.implementations, HybridDeleGatorImpl: hybridDeleGatorImpl }, };
+    // console.log("customEnv: ", customEnv);
+
+    // Now override the environment to use the custom implementation
+    overrideDeployedEnvironment(
+        sepolia.id,
+        "1.3.0",
+        customEnv
+    );
+    */
+
 
     // build individuals AA for EOA Connected Wallet
     const accountClient = await toMetaMaskSmartAccount({
@@ -135,24 +160,22 @@ const getSessionAccount = async(owner: any, signatory: any, publicClient: any) :
             throw new Error("Failed to initialize account client");
         }
 
+        console.info("..........> orgAccountClient: ", orgAccountClient.address)
 
         const pimlicoClient = createPimlicoClient({
             transport: http(BUNDLER_URL),
-          });
-        const paymasterClient = createPaymasterClient({
-            transport: http(PAYMASTER_URL),
+            chain: sepolia
         });
+
+
+        //const paymasterClient = createPaymasterClient({
+        //    transport: http(PAYMASTER_URL),
+        //});
         const bundlerClient = createBundlerClient({
-                        transport: http(BUNDLER_URL),
-                        paymaster: paymasterClient,
-                        chain: sepolia,
-                        paymasterContext: {
-                            // at minimum this must be an object; for Biconomy you can use:
-                            mode:             'SPONSORED',
-                            //calculateGasLimits: true,
-                            //expiryDuration:  300,
-                        },
-                    }).extend(erc7710BundlerActions());
+            transport: http(BUNDLER_URL) as any,
+            chain: sepolia as any,
+            paymaster: true,
+        }).extend(erc7710BundlerActions()) as any;
 
 
 
@@ -160,22 +183,24 @@ const getSessionAccount = async(owner: any, signatory: any, publicClient: any) :
         console.info("************* isDeployed: ", isDeployed)
         if (isDeployed == false) {
 
+            /*
             const { fast: fee } = await pimlicoClient.getUserOperationGasPrice();
             const userOperationHash = await bundlerClient!.sendUserOperation({
-            account: orgAccountClient,
-            calls: [
-                {
-                to: zeroAddress,
-                },
-            ],
-            paymaster: paymasterClient,
-            ...fee,
-            });
+                account: orgAccountClient,
+                calls: [
+                    {
+                    to: zeroAddress,
+                    },
+                ],
+                paymaster: paymasterClient,
+                ...fee,
+                });
 
-            console.info("send user operation - done")
-            const { receipt } = await bundlerClient!.waitForUserOperationReceipt({
-            hash: userOperationHash,
+                console.info("send user operation - done")
+                const { receipt } = await bundlerClient!.waitForUserOperationReceipt({
+                hash: userOperationHash,
             });
+            */
 
         }
 
@@ -228,6 +253,10 @@ const getSessionAccount = async(owner: any, signatory: any, publicClient: any) :
         const sessionAccount = await getSessionAccount(loginResp.owner, loginResp.signatory, publicClient)
         const sessionIsDeployed = await sessionAccount?.isDeployed()
         console.info("************* sessionIsDeployed: ", sessionIsDeployed)
+
+        console.info("..........> sessionAccount: ", sessionAccount.address)
+
+        /*
         if (sessionIsDeployed == false) {
 
             const { fast: fee } = await pimlicoClient.getUserOperationGasPrice();
@@ -248,11 +277,13 @@ const getSessionAccount = async(owner: any, signatory: any, publicClient: any) :
             });
 
         }
+        */
 
         const currentTime = Math.floor(Date.now() / 1000);
         const oneDayInSeconds = 24 * 60 * 60;
         const expiry = currentTime + oneDayInSeconds;
 
+        console.info(".......> orgAddress: ", orgAddress.address)
         console.info("granting permissions for session account client: ", sessionAccount)
         const grantedPermissions = await loginResp.signatory.walletClient.grantPermissions([{
             chainId: chain.id,
@@ -292,13 +323,17 @@ const getSessionAccount = async(owner: any, signatory: any, publicClient: any) :
 
         if (delegationManager) {
 
-            console.info("send user operation")
+            console.info("send user operation 1")
             const { fast: fee } = await pimlicoClient.getUserOperationGasPrice();
-            const nonce = await sessionAccount.getNonce();
+
+
+            //const nonce = await sessionAccount.getNonce();
+
+            console.info("sendUserOperationWithDelegation")
             const userOperationHash = await bundlerClient!.sendUserOperationWithDelegation({
                 publicClient,
                 account: sessionAccount,
-                nonce,
+                //nonce,
                 calls: [
                 {
                     to: sessionAccount.address,
