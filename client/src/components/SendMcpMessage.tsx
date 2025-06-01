@@ -1,13 +1,21 @@
 // src/components/SendMcpMessage.tsx
 
 
-import React, { useState } from 'react';
+import React from 'react';
+import {
+    createContext,
+    useCallback,
+    useContext,
+    useEffect,
+    useState,
+  } from "react";
 
 import {
   type TypedDataDomain,
   type TypedDataField,
 } from 'ethers'
 
+import { ethers, } from "ethers";
 
 import { sepolia } from "viem/chains";
 import { createPublicClient, createWalletClient, http, createClient, custom, parseEther, zeroAddress, toHex, type Address, encodeFunctionData, hashMessage } from "viem";
@@ -24,11 +32,36 @@ import { erc7715ProviderActions } from "@metamask/delegation-toolkit/experimenta
 
 import { AAKmsSigner } from '@mcp/shared';
 
+import { usePermissions } from "../providers/PermissionProvider";
+
+import { GrantPermissionsReturnType } from "@metamask/delegation-toolkit/experimental";
+export type Permission = NonNullable<GrantPermissionsReturnType>[number];
+interface PermissionContextType {
+    permission: Permission | null;
+    smartAccount: Address | null;
+    savePermission: (permission: Permission) => void;
+    fetchPermission: () => Permission | null;
+    removePermission: () => void;
+  }
+export const PermissionContext = createContext<PermissionContextType>({
+    permission: null,
+    smartAccount: null,
+    savePermission: () => {},
+    fetchPermission: () => null,
+    removePermission: () => {},
+  });
+
+// Add RPC URL constant
+const RPC_URL = sepolia.rpcUrls.default.http[0];
+
+// Add Account Abstraction ABI
+const accountAbstractionAbi = [
+    "function owner() view returns (address)"
+];
 
 export const SendMcpMessage: React.FC = () => {
 
-  // subscription client delegator:  where funds are coming out of to pay for subscription
-  const clientSubscriberSmartAddress = "0x383668f69e39c5D9Dcb2B4b46112de6D2D727905"
+    const { savePermission } = usePermissions();
 
   const [response, setResponse] = useState<any>(null);
   const [loading, setLoading] = useState(false);
@@ -76,17 +109,49 @@ export const SendMcpMessage: React.FC = () => {
   };
 
 
-  const getClientSubscriberSmartAccount = async(owner: any, signatory: any, publicClient: any) : Promise<any> => {
+  const getClientSubscriberSmartAccount = async(
+    owner: any, 
+    signatory: any, 
+    publicClient: any,
+    address: `0x${string}`
+  ) : Promise<any> => {
+    
+    // Issue with metamask smart contract created.  I don't have an owner address and cannot get signature using ERC-1271
+    // For now we return a default account for DID, VC and VP
+    // Money is still taken out of the metamask smart wallet defined by address.
     
     const accountClient = await toMetaMaskSmartAccount({
-        address: clientSubscriberSmartAddress as `0x${string}`,
+        //address,
         client: publicClient as any,
         implementation: Implementation.Hybrid,
+        deployParams: [
+            owner,
+          [] as string[],
+          [] as bigint[],
+          [] as bigint[]
+        ] as [owner: `0x${string}`, keyIds: string[], xValues: bigint[], yValues: bigint[]],
+        deploySalt: "0x0000000000000000000000000000000000000000000000000000000000000001",
         signatory: signatory as any,
-        deploySalt: "0x0000000000000000000000000000000000000000000000000000000000000001"
     });
 
-    return accountClient
+    // After creating the account client, we can check if it's deployed
+    const isDeployed = await accountClient.isDeployed();
+    console.log("Smart account deployment status:", isDeployed);
+
+    if (isDeployed) {
+        try {
+            const provider = new ethers.JsonRpcProvider(RPC_URL);
+            const contract = new ethers.Contract(accountClient.address, accountAbstractionAbi, provider);
+            const contractOwner = await contract.owner();
+            console.log("Smart account owner:", contractOwner);
+        } catch (error) {
+            console.warn("Could not get owner of deployed account:", error);
+        }
+    } else {
+        console.log("Smart account not yet deployed");
+    }
+
+    return accountClient;
 }
 
 
@@ -96,24 +161,22 @@ export const SendMcpMessage: React.FC = () => {
     setLoading(true);
     try {
 
-        const clientSubscriberDid = "did:aa:eip155:" + chain.id + ":" + clientSubscriberSmartAddress
-        
-        console.info("client subscriber smart account address : ", clientSubscriberSmartAddress)
-        console.info("client subscriber did: ", clientSubscriberDid)
+
+          
 
         // get challenge from organization providing service,  along with challenge phrase
-        const challengeResult = await fetch('http://localhost:3001/mcp', {
+        const challengeResult : any = await fetch('http://localhost:3001/mcp', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
             type: 'PresentationRequest',
-            from: clientSubscriberDid,
+            //from: clientSubscriberDid,
             payload: {
                 action: 'ServiceSubscriptionRequest'
             },
             }),
         });
-        const challengeData = await challengeResult.json()
+        const challengeData : any = await challengeResult.json()
         console.info("........ challengeResult: ", challengeData)
 
                 
@@ -123,16 +186,75 @@ export const SendMcpMessage: React.FC = () => {
           chain: sepolia,
           transport: http(),
         });
-        const clientSubscriptionAccountClient = await getClientSubscriberSmartAccount(loginResp.owner, loginResp.signatory, publicClient)
+
+
+
+
+        // generate payment permission for service account
+        const smartServiceAccountAddress = challengeData.address
+
+        const currentTime = Math.floor(Date.now() / 1000);
+        const oneDayInSeconds = 24 * 60 * 60;
+        const expiry = currentTime + oneDayInSeconds;
+
+        console.info("granting permissions for service payment: ", smartServiceAccountAddress)
+        const grantedPermissions = await loginResp.signatory.walletClient.grantPermissions([{
+            chainId: chain.id,
+            expiry,
+            signer: {
+                type: "account",
+                data: {
+                address: smartServiceAccountAddress,
+                },
+            },
+            permission: {
+                type: "native-token-stream",
+                data: {
+                    initialAmount: BigInt(1e15), 
+                    amountPerSecond: BigInt(1e15), 
+                    maxAmount: parseEther("0.1"),
+                    startTime: currentTime,
+                    justification: "Payment for a month long service subscription",
+                },
+            },
+        }]);
+
+
+        // permissions in EOA Wallet and not smart account
+        const permission = grantedPermissions[0]
+        savePermission(permission)
+
         
+        const { accountMeta, context, signerMeta, address } = permission;
+
+        //console.log('context in RedeemDelegation.tsx:', context);
+        //console.log('accountMeta in RedeemDelegation.tsx:', accountMeta);
+        //console.log('signerMeta in RedeemDelegation.tsx:', signerMeta);
+  
+        if (!signerMeta) {
+          console.error("No signer meta found");
+          setLoading(false);
+          return;
+        }
+
+
+        // subscription client delegator:  where funds are coming out of to pay for subscription
+        //const clientSubscriberSmartAddress = "0xaC70Cb86615e09eFBEcB9bA29F5B35382A3e6cEc"
+
+
+        const clientSubscriptionAccountClient = await getClientSubscriberSmartAccount(loginResp.owner, loginResp.signatory, publicClient, address)
+        console.info("client smart account address: ",  clientSubscriptionAccountClient.address)
+
         // Ensure account is properly initialized
         if (!clientSubscriptionAccountClient || !clientSubscriptionAccountClient.address) {
             throw new Error("Failed to initialize account client");
         }
 
-
-
-
+        const clientSubscriberSmartAddress = clientSubscriptionAccountClient.address.toLowerCase()
+        const clientSubscriberDid = "did:aa:eip155:" + chain.id + ":" + clientSubscriberSmartAddress.toLowerCase()
+        
+        console.info("client subscriber smart account address : ", clientSubscriberSmartAddress)
+        console.info("client subscriber did: ", clientSubscriberDid)
 
 
         const isDeployed = await clientSubscriptionAccountClient?.isDeployed()
@@ -180,7 +302,7 @@ export const SendMcpMessage: React.FC = () => {
         // add did and key to our agent
         await agent.didManagerImport({
             did: clientSubscriberDid, // or did:aa if you're using a custom method
-            provider: 'did:aa:subscriber',
+            provider: 'did:aa:client',
             alias: 'subscriber-smart-account',
             keys:[]
         })
@@ -201,53 +323,11 @@ export const SendMcpMessage: React.FC = () => {
 
 
 
-        const smartServiceAccountAddress = challengeData.address
-
-        const currentTime = Math.floor(Date.now() / 1000);
-        const oneDayInSeconds = 24 * 60 * 60;
-        const expiry = currentTime + oneDayInSeconds;
-
-        console.info("granting permissions for service payment: ", smartServiceAccountAddress)
-        const grantedPermissions = await loginResp.signatory.walletClient.grantPermissions([{
-            chainId: chain.id,
-            expiry,
-            signer: {
-                type: "account",
-                data: {
-                address: smartServiceAccountAddress,
-                },
-            },
-            permission: {
-                type: "native-token-stream",
-                data: {
-                    initialAmount: BigInt(1e15), 
-                    amountPerSecond: BigInt(1e15), 
-                    maxAmount: parseEther("0.1"),
-                    startTime: currentTime,
-                    justification: "Payment for a month long service subscription",
-                },
-            },
-        }]);
-
-
-        const permission = grantedPermissions[0]
-        const { accountMeta, context, signerMeta } = permission;
-
-        //console.log('context in RedeemDelegation.tsx:', context);
-        //console.log('accountMeta in RedeemDelegation.tsx:', accountMeta);
-        //console.log('signerMeta in RedeemDelegation.tsx:', signerMeta);
-  
-        if (!signerMeta) {
-          console.error("No signer meta found");
-          setLoading(false);
-          return;
-        }
-
 
 
  
 
-
+        /*
         // try out signing a message, just a capability demonstration
         const kid = "aa-" + clientSubscriberSmartAddress
         const signature = await agent.keyManagerSign({
@@ -257,10 +337,11 @@ export const SendMcpMessage: React.FC = () => {
             })
         console.info(">>>>>>>>>. signature: ", signature)
 
+
         // try getting the did document, this is a capability demonstration
         const didDoc = await agent.resolveDid({didUrl: clientSubscriberDid})
         console.info("didDoc: ", didDoc)
-
+        */
 
         // construct the verifiable credential and presentation for service request and payment permission
 
@@ -286,12 +367,15 @@ export const SendMcpMessage: React.FC = () => {
                 if (!result) {
                     throw new Error("signTypedData returned undefined");
                 }
+
+                console.info("owner account: ", loginResp.owner)
+                console.info("client smart account signTypedData result: ", result)
                 return result;
             },
 
             async getAddress(): Promise<Address> {
                 if (!clientSubscriptionAccountClient) {
-                    throw new Error("orgAccountClient is not initialized");
+                    throw new Error("clientSubscriptionAccountClient is not initialized");
                 }
                 return clientSubscriptionAccountClient.address;
             },
@@ -353,7 +437,7 @@ export const SendMcpMessage: React.FC = () => {
 
             async getAddress(): Promise<Address> {
                 if (!clientSubscriptionAccountClient) {
-                    throw new Error("orgAccountClient is not initialized");
+                    throw new Error("clientSubscriptionAccountClient is not initialized");
                 }
                 return clientSubscriptionAccountClient.address;
             },
@@ -492,10 +576,10 @@ export const SendMcpMessage: React.FC = () => {
         const data = await res.json();
         setResponse(data);
     } catch (err) {
-    console.error('Error sending MCP message:', err);
-    setResponse({ error: 'Request failed' });
+        console.error('Error sending MCP message:', err);
+        setResponse({ error: 'Request failed' });
     } finally {
-    setLoading(false);
+        setLoading(false);
     }
   };
 

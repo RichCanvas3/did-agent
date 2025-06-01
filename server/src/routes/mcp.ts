@@ -135,13 +135,16 @@ const handleMcpRequest: RequestHandler = async (req, res) => {
           const { fast: fee } = await pimlicoClient.getUserOperationGasPrice();
 
           const bundlerClient = createBundlerClient({
-            transport: http(process.env.BUNDLER_URL) as any,
-            chain: sepolia as any,
+            transport: http(process.env.BUNDLER_URL),
+            chain: sepolia,
             paymaster: true,
-          }).extend(erc7710BundlerActions()) as any;
+          }) as any;
 
+          const bundlerClientWithDelegation = bundlerClient.extend((client: any) => ({
+            ...erc7710BundlerActions()(client)
+          }));
 
-          const userOperationHash = await bundlerClient!.sendUserOperationWithDelegation({
+          const userOperationHash = await bundlerClientWithDelegation.sendUserOperationWithDelegation({
               publicClient,
               account: serverAccount,
               calls: [
@@ -157,7 +160,7 @@ const handleMcpRequest: RequestHandler = async (req, res) => {
               accountMetadata: accountMeta,
               
           });
-          const { receipt } = await bundlerClient!.waitForUserOperationReceipt({
+          const { receipt } = await bundlerClientWithDelegation.waitForUserOperationReceipt({
               hash: userOperationHash,
           });
           
@@ -172,6 +175,11 @@ const handleMcpRequest: RequestHandler = async (req, res) => {
             ],
           })
         } 
+      }
+      else {
+        console.error("verification failed")
+        res.status(400).json({ error: 'Verification failed' })
+        return
       }
     } catch (error) {
       console.error("Error processing request:", error)

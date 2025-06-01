@@ -51,7 +51,7 @@ export const agent: Agent = createAgent({
       }),
       new DIDManager({
         store: new MemoryDIDStore(),
-        defaultProvider: 'did:aa:org',
+        defaultProvider: 'did:aa:client',
         providers: didProviders,
       }),
       new DIDResolverPlugin({

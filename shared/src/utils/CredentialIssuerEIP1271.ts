@@ -266,6 +266,8 @@ export class CredentialIssuerEIP1271 implements IAgentPlugin {
 
   async verifyCredentialEIP1271(args: IVerifyCredentialEIP1271Args, context: IRequiredContext) : Promise<boolean> {
 
+    console.info("verifyCredentialEIP1271 called with args: ", args)
+
     // check that proof exists
     const { credential } = args
     if (!credential.proof || !credential.proof.proofValue)
@@ -282,8 +284,10 @@ export class CredentialIssuerEIP1271 implements IAgentPlugin {
       ...eip712,
     }
     compat.types = compat.types || compat.messageSchema
-    if (!compat.primaryType || !compat.types || !compat.domain)
+    if (!compat.primaryType || !compat.types || !compat.domain) {
       throw new Error('invalid_argument: proof is missing expected properties')
+    }
+      
 
     const filteredTypes = { ...compat.types };
     delete filteredTypes.EIP712Domain;
@@ -315,6 +319,7 @@ export class CredentialIssuerEIP1271 implements IAgentPlugin {
 
 
     const did = (credential.issuer as any).id
+    console.info(">>>>>>>>>>>> credential issuer did: ", did)
     function getAddressFromDidAa(did: string): string | null {
       const parts = did.split(':');
       if (parts.length === 5 && parts[0] === 'did' && parts[1] === 'aa' && parts[2] === 'eip155') {
@@ -326,6 +331,7 @@ export class CredentialIssuerEIP1271 implements IAgentPlugin {
       return null;
     }
     const address = getAddressFromDidAa(did as `0x${string}`);
+    console.info("address used to validate signature: ", address)
 
     // validate signature using contract EIP-1271
     const { data: isValidSignature } = await publicClient.call({
@@ -334,8 +340,9 @@ export class CredentialIssuerEIP1271 implements IAgentPlugin {
         to: address as `0x${string}`,
     });
 
+    console.info("isValidSignature: ", isValidSignature)
     if (!isValidSignature?.startsWith('0x1626ba7e')) {
-      console.info("********** Signature is not valid according to EIP-1271")
+      console.info("********** Verifiable Credential Signature is not valid according to EIP-1271")
       return false
     }
     console.info("signature is valid according to EIP-1271")
@@ -439,7 +446,7 @@ export class CredentialIssuerEIP1271 implements IAgentPlugin {
     });
 
     if (!isValidSignature?.startsWith('0x1626ba7e')) {
-      console.info("*********** Signature is not valid according to EIP-1271")
+      console.info("*********** Verifiable Presentation Signature is not valid according to EIP-1271")
       console.info("isValidSignature: ", isValidSignature)
       return false
     }
