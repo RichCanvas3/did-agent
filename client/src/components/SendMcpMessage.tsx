@@ -13,27 +13,11 @@ import {  agent } from '../agents/veramoAgent';
 
 import {
     Implementation,
-    MetaMaskSmartAccount,
     toMetaMaskSmartAccount,
-    getDeleGatorEnvironment,
-    overrideDeployedEnvironment
   } from "@metamask/delegation-toolkit";
 
-import { erc7710BundlerActions } from "@metamask/delegation-toolkit/experimental";
+
 import { erc7715ProviderActions } from "@metamask/delegation-toolkit/experimental";
-
-import {
-    createBundlerClient,
-    createPaymasterClient,
-    UserOperationReceipt,
-  } from "viem/account-abstraction";
-
-import { createPimlicoClient } from "permissionless/clients/pimlico";
-
-
-import {BUNDLER_URL, PAYMASTER_URL} from "../config";
-
-
 
 
 import { AAKmsSigner } from '@mcp/shared';
@@ -41,7 +25,8 @@ import { AAKmsSigner } from '@mcp/shared';
 
 export const SendMcpMessage: React.FC = () => {
 
-    const orgAddress = "0x383668f69e39c5D9Dcb2B4b46112de6D2D727905"
+  // subscription client delegator:  where funds are coming out of to pay for subscription
+  const clientSubscriberSmartAddress = "0x383668f69e39c5D9Dcb2B4b46112de6D2D727905"
 
   const [response, setResponse] = useState<any>(null);
   const [loading, setLoading] = useState(false);
@@ -89,12 +74,10 @@ export const SendMcpMessage: React.FC = () => {
   };
 
 
-  const getOrgAccount = async(owner: any, signatory: any, publicClient: any) : Promise<any> => {
+  const getClientSubscriberSmartAccount = async(owner: any, signatory: any, publicClient: any) : Promise<any> => {
     
-
-    // build individuals AA for EOA Connected Wallet
     const accountClient = await toMetaMaskSmartAccount({
-        address: orgAddress,
+        address: clientSubscriberSmartAddress,
         client: publicClient,
         implementation: Implementation.Hybrid,
         deployParams: [owner, [], [], []],
@@ -113,20 +96,20 @@ export const SendMcpMessage: React.FC = () => {
     setLoading(true);
     try {
 
-        const orgDid = "did:aa:eip155:" + chain.id + ":" + orgAddress
-        console.info("deployed org account client address: ", orgAddress)
-        console.info("org account client: ", orgAddress)
-        console.info("org account did: ", orgDid)
+        const clientSubscriberDid = "did:aa:eip155:" + chain.id + ":" + clientSubscriberSmartAddress
+        
+        console.info("client subscriber smart account address : ", clientSubscriberSmartAddress)
+        console.info("client subscriber did: ", clientSubscriberDid)
 
-        // get challenge from server
+        // get challenge from organization providing service,  along with challenge phrase
         const challengeResult = await fetch('http://localhost:3001/mcp', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
             type: 'PresentationRequest',
-            from: orgDid,
+            from: clientSubscriberDid,
             payload: {
-                action: 'FindStateRegistration'
+                action: 'ServiceSubscriptionRequest'
             },
             }),
         });
@@ -136,43 +119,40 @@ export const SendMcpMessage: React.FC = () => {
                 
 
         const loginResp = await login()
-
-        // get aa account
         const publicClient = createPublicClient({
           chain: sepolia,
           transport: http(),
         });
-        const orgAccountClient = await getOrgAccount(loginResp.owner, loginResp.signatory, publicClient)
+        const clientSubscriptionAccountClient = await getClientSubscriberSmartAccount(loginResp.owner, loginResp.signatory, publicClient)
         
         // Ensure account is properly initialized
-        if (!orgAccountClient || !orgAccountClient.address) {
+        if (!clientSubscriptionAccountClient || !clientSubscriptionAccountClient.address) {
             throw new Error("Failed to initialize account client");
         }
 
-        console.info("..........> orgAccountClient: ", orgAccountClient.address)
-
-        const pimlicoClient = createPimlicoClient({
-            transport: http(BUNDLER_URL),
-            chain: sepolia
-        });
-
-
-        //const paymasterClient = createPaymasterClient({
-        //    transport: http(PAYMASTER_URL),
-        //});
-        const bundlerClient = createBundlerClient({
-            transport: http(BUNDLER_URL) as any,
-            chain: sepolia as any,
-            paymaster: true,
-        }).extend(erc7710BundlerActions()) as any;
 
 
 
-        const isDeployed = await orgAccountClient?.isDeployed()
+
+
+        const isDeployed = await clientSubscriptionAccountClient?.isDeployed()
         console.info("************* isDeployed: ", isDeployed)
         if (isDeployed == false) {
 
             /*
+
+            const pimlicoClient = createPimlicoClient({
+                transport: http(BUNDLER_URL),
+                chain: sepolia
+            });
+
+            const bundlerClient = createBundlerClient({
+                transport: http(BUNDLER_URL) as any,
+                chain: sepolia as any,
+                paymaster: true,
+            }).extend(erc7710BundlerActions()) as any;
+
+
             const { fast: fee } = await pimlicoClient.getUserOperationGasPrice();
             const userOperationHash = await bundlerClient!.sendUserOperation({
                 account: orgAccountClient,
@@ -193,72 +173,48 @@ export const SendMcpMessage: React.FC = () => {
 
         }
 
-        //const orgAddress = orgAccountClient?.address.toLowerCase()
-        
-
 
         // get agent available methods, this is a capability demonstration
-        const availableMethods = await agent.availableMethods()
+        // const availableMethods = await agent.availableMethods()
 
         // add did and key to our agent
         await agent.didManagerImport({
-            did: orgDid, // or did:aa if you're using a custom method
-            provider: 'did:aa:org',
-            alias: 'org-smart-account',
+            did: clientSubscriberDid, // or did:aa if you're using a custom method
+            provider: 'did:aa:subscriber',
+            alias: 'subscriber-smart-account',
             keys:[]
         })
 
-        /*
-        await agent.didManagerImport({
-            did: orgDid,
-            alias: 'org-did',
-            provider: 'did:aa:org',
-            controllerKeyId: "id",
-            keys: []
-          });
-        */
 
         await agent.keyManagerImport({
             kms: 'aa',
-            kid: 'aa-' + orgAddress,
+            kid: 'aa-' + clientSubscriberSmartAddress,
             type: 'Secp256k1',
             publicKeyHex: '0x', // replace with actual public key 
             privateKeyHex: '0x' // replace with actual private key if available
         });
 
 
+        const identifier = await agent.didManagerGet({ did: clientSubscriberDid });
+        console.info("clientSubscriberDid did identifier: ", identifier)
 
 
 
-        const identifier = await agent.didManagerGet({ did: orgDid });
-        console.info("org did identifier: ", identifier)
 
-        // add permissions to orgAccountClient
-        
-
-
-        //const sessionAccount = await getSessionAccount(loginResp.owner, loginResp.signatory, publicClient)
-        //const sessionIsDeployed = await sessionAccount?.isDeployed()
-        //console.info("************* sessionIsDeployed: ", sessionIsDeployed)
-
-        //console.info("..........> sessionAccount: ", sessionAccount.address)
-
-
-        const serverAccount = challengeData.address
+        const smartServiceAccountAddress = challengeData.address
 
         const currentTime = Math.floor(Date.now() / 1000);
         const oneDayInSeconds = 24 * 60 * 60;
         const expiry = currentTime + oneDayInSeconds;
 
-        console.info(".......> orgAddress: ", orgAddress)
-        console.info("granting permissions for server account client: ", serverAccount)
+        console.info("granting permissions for service payment: ", smartServiceAccountAddress)
         const grantedPermissions = await loginResp.signatory.walletClient.grantPermissions([{
             chainId: chain.id,
             expiry,
             signer: {
                 type: "account",
                 data: {
-                address: serverAccount,
+                address: smartServiceAccountAddress,
                 },
             },
             permission: {
@@ -268,60 +224,23 @@ export const SendMcpMessage: React.FC = () => {
                     amountPerSecond: BigInt(1e15), 
                     maxAmount: parseEther("0.1"),
                     startTime: currentTime,
-                    justification: "Payment for a week long subscription",
+                    justification: "Payment for a month long service subscription",
                 },
             },
         }]);
-        console.info("granted permissions: ", grantedPermissions)
+
 
         const permission = grantedPermissions[0]
         const { accountMeta, context, signerMeta } = permission;
 
-        console.log('context in RedeemDelegation.tsx:', context);
-        console.log('accountMeta in RedeemDelegation.tsx:', accountMeta);
-        console.log('signerMeta in RedeemDelegation.tsx:', signerMeta);
+        //console.log('context in RedeemDelegation.tsx:', context);
+        //console.log('accountMeta in RedeemDelegation.tsx:', accountMeta);
+        //console.log('signerMeta in RedeemDelegation.tsx:', signerMeta);
   
         if (!signerMeta) {
           console.error("No signer meta found");
           setLoading(false);
           return;
-        }
-        const { delegationManager } = signerMeta;
-
-        if (delegationManager) {
-
-            /*
-            console.info("send user operation 1")
-            const { fast: fee } = await pimlicoClient.getUserOperationGasPrice();
-
-
-            console.info("sendUserOperationWithDelegation")
-            const userOperationHash = await bundlerClient!.sendUserOperationWithDelegation({
-                publicClient,
-                account: sessionAccount,
-                //nonce,
-                calls: [
-                {
-                    to: sessionAccount.address,
-                    data: "0x",
-                    value: 1n,
-                    permissionsContext: context,
-                    delegationManager,
-                },
-                ],
-                // Appropriate values must be used for fee-per-gas. 
-                //paymaster: paymasterClient,
-                ...fee,
-                accountMetadata: accountMeta,
-                
-            });
-            const { receipt } = await bundlerClient!.waitForUserOperationReceipt({
-                hash: userOperationHash,
-            });
-            
-            
-            console.info("transaction receipt: ", receipt)
-            */
         }
 
 
@@ -330,20 +249,20 @@ export const SendMcpMessage: React.FC = () => {
 
 
         // try out signing a message, just a capability demonstration
-        const kid = "aa-" + orgAddress
+        const kid = "aa-" + clientSubscriberSmartAddress
         const signature = await agent.keyManagerSign({
-            data: 'Hello world',
+            data: 'for smart service payment',
             keyRef: kid,
             algorithm: 'eth_signMessage',
             })
         console.info(">>>>>>>>>. signature: ", signature)
 
         // try getting the did document, this is a capability demonstration
-        const didDoc = await agent.resolveDid({didUrl: orgDid})
+        const didDoc = await agent.resolveDid({didUrl: clientSubscriberDid})
         console.info("didDoc: ", didDoc)
 
 
-        // construct the verifiable credential and presentation
+        // construct the verifiable credential and presentation for service request and payment permission
 
         // @ts-ignore
         const signerAAVC: AAKmsSigner = {
@@ -354,7 +273,7 @@ export const SendMcpMessage: React.FC = () => {
                 value: Record<string, any>,
             ): Promise<string> {
 
-                const result = await orgAccountClient?.signTypedData({
+                const result = await clientSubscriptionAccountClient?.signTypedData({
                     account: loginResp.owner, // EOA that controls the smart contract
 
                     // @ts-ignore
@@ -371,10 +290,10 @@ export const SendMcpMessage: React.FC = () => {
             },
 
             async getAddress(): Promise<Address> {
-                if (!orgAccountClient) {
+                if (!clientSubscriptionAccountClient) {
                     throw new Error("orgAccountClient is not initialized");
                 }
-                return orgAccountClient.address;
+                return clientSubscriptionAccountClient.address;
             },
 
         };
@@ -382,12 +301,12 @@ export const SendMcpMessage: React.FC = () => {
 
         const vcAA = await agent.createVerifiableCredentialEIP1271({
             credential: {
-                issuer: { id: orgDid },
+                issuer: { id: clientSubscriberDid },
                 issuanceDate: new Date().toISOString(),
                 type: ['VerifiableCredential'],
                 credentialSubject:
                 {
-                    id: orgDid,
+                    id: clientSubscriberDid,
                     permission: JSON.stringify(permission),
                  },
                  
@@ -397,7 +316,7 @@ export const SendMcpMessage: React.FC = () => {
 
         })
 
-        console.info("verifiable credential: ", vcAA)    
+        console.info("service request and payment permission verifiable credential: ", vcAA)    
          
 
         // demonstrate verification of the verifiable credential
@@ -417,7 +336,7 @@ export const SendMcpMessage: React.FC = () => {
                 console.info("signTypedData called with domain: ", domain);
                 console.info("signTypedData called with types: ", types);
                 console.info("signTypedData called with value: ", value);
-                const result = await orgAccountClient?.signTypedData({
+                const result = await clientSubscriptionAccountClient?.signTypedData({
                     account: loginResp.owner, // EOA that controls the smart contract
                     // @ts-ignore
                     domain: domain,
@@ -433,17 +352,17 @@ export const SendMcpMessage: React.FC = () => {
             },
 
             async getAddress(): Promise<Address> {
-                if (!orgAccountClient) {
+                if (!clientSubscriptionAccountClient) {
                     throw new Error("orgAccountClient is not initialized");
                 }
-                return orgAccountClient.address;
+                return clientSubscriptionAccountClient.address;
             },
 
         };
         const vpAA = await agent.createVerifiablePresentationEIP1271(
             {
                 presentation: {
-                    holder: orgDid,
+                    holder: clientSubscriberDid,
                     verifiableCredential: [vcAA],
                 },
                 proofFormat: 'EthereumEip712Signature2021',
@@ -486,7 +405,7 @@ export const SendMcpMessage: React.FC = () => {
             type: 'PresentationRequest',
             from: 'did:web:client.myorgwallet.io',
             payload: {
-                action: 'FindStateRegistration'
+                action: 'ServiceSubscriptionRequest'
             },
             }),
         });
@@ -561,8 +480,7 @@ export const SendMcpMessage: React.FC = () => {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
             type: 'AskForService',
-            //sender: 'did:web:client.myorgwallet.io',
-            sender: orgDid,
+            sender: clientSubscriberDid,
             payload: {
                 location: 'Erie, CO',
                 service: 'Lawn Care',

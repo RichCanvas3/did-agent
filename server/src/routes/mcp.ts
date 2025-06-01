@@ -3,7 +3,7 @@ import { agent } from '../agents/veramoAgent.js'
 import sanitizeHtml from 'sanitize-html';
 import dotenv from 'dotenv';
 
-// Load environment variables
+
 dotenv.config();
 
 import { createPublicClient, createWalletClient, http, createClient, custom, parseEther, zeroAddress, toHex, type Address, encodeFunctionData, hashMessage } from "viem";
@@ -11,23 +11,17 @@ import { privateKeyToAccount, PrivateKeyAccount, generatePrivateKey } from "viem
 
 import { createPimlicoClient } from "permissionless/clients/pimlico";
 import { erc7710BundlerActions } from "@metamask/delegation-toolkit/experimental";
-import { erc7715ProviderActions } from "@metamask/delegation-toolkit/experimental";
 
 const mcpRoutes: express.Router = express.Router()
 
 import {
   Implementation,
-  MetaMaskSmartAccount,
   toMetaMaskSmartAccount,
-  getDeleGatorEnvironment,
-  overrideDeployedEnvironment
 } from "@metamask/delegation-toolkit";
 import { sepolia } from 'viem/chains';
 
 import {
   createBundlerClient,
-  createPaymasterClient,
-  UserOperationReceipt,
 } from "viem/account-abstraction";
 
 const getServerAccount = async() : Promise<any> => {
@@ -43,7 +37,6 @@ const getServerAccount = async() : Promise<any> => {
 
   const rawKey = process.env.SERVER_PRIVATE_KEY;
   const serverPrivateKey = (rawKey.startsWith('0x') ? rawKey : `0x${rawKey}`) as `0x${string}`;
-  console.info("serverPrivateKey: ", serverPrivateKey)
   
   if (!/^0x[0-9a-fA-F]{64}$/.test(serverPrivateKey)) {
     throw new Error('Invalid private key format. Must be 32 bytes (64 hex characters) with optional 0x prefix');
@@ -52,13 +45,10 @@ const getServerAccount = async() : Promise<any> => {
   const serverAccount = privateKeyToAccount(serverPrivateKey);
   console.info("serverAccount: ", serverAccount)
 
-  // build individuals AA for EOA Connected Wallet
-  const environment = getDeleGatorEnvironment(sepolia.id);
 
   const accountClient = await toMetaMaskSmartAccount({
       client: publicClient as any,
       implementation: Implementation.Hybrid,
-      environment,
       deployParams: [
         serverAccount.address as `0x${string}`,
         [] as string[],
@@ -76,12 +66,12 @@ const handleMcpRequest: RequestHandler = async (req, res) => {
   const { type, sender, payload } = req.body
 
   const serverAccount = await getServerAccount()
-  console.info("----------> received presentation request and returning challenge: ", serverAccount.address)
 
-  const challenge = 'hello world ....'
+
+  const challenge = 'hello world ....' // make this random in real world implementation
   if (type == 'PresentationRequest') {
 
-
+    console.info("----------> received presentation request and returning address and challenge: ", serverAccount.address)
     res.json({
         type: 'Challenge',
         challenge: challenge,
@@ -92,40 +82,38 @@ const handleMcpRequest: RequestHandler = async (req, res) => {
 
   if (type === 'AskForService') {
     try {
-      console.info("----------> received client request with verifiable presentation ")
+      console.info("----------> request has VC of request and payment information ")
 
-      const didHolder = sanitizeHtml(payload.presentation.holder as string)
-
-      console.info("client did: ", didHolder)
+      const clientSmartAccountDid = sanitizeHtml(payload.presentation.holder as string)
 
       const presentation = payload.presentation
-      console.info("presentation: ", presentation)
 
+      // get DID Document associated with client requesting service
       const result =agent.resolveDid({
-          didUrl: didHolder
+          didUrl: clientSmartAccountDid
       })
       
 
-      console.info("client did document: ", result)
+      // verify the Credential signature leveraging the smart account
       const verificationResult = await  agent.verifyPresentationEIP1271({
             presentation
       })
-   
       console.info("are we good here?: ", verificationResult)
+
       if (verificationResult) {
 
-        console.info("processing verified presentation: ", presentation)
+        console.info("process the payment held in the verifiable credential ")
 
         const vc = JSON.parse(presentation.verifiableCredential[0])
         const permission = JSON.parse(vc.credentialSubject.permission)
 
-        console.info("permission: ", permission)
+        console.info("payment permission: ", permission)
 
         const { accountMeta, context, signerMeta } = permission;
 
-        console.log('context in RedeemDelegation.tsx:', context);
-        console.log('accountMeta in RedeemDelegation.tsx:', accountMeta);
-        console.log('signerMeta in RedeemDelegation.tsx:', signerMeta);
+        //console.log('context in RedeemDelegation.tsx:', context);
+        //console.log('accountMeta in RedeemDelegation.tsx:', accountMeta);
+        //console.log('signerMeta in RedeemDelegation.tsx:', signerMeta);
   
         if (!signerMeta) {
           console.error("No signer meta found");
@@ -140,7 +128,6 @@ const handleMcpRequest: RequestHandler = async (req, res) => {
             transport: http(),
           });
 
-          console.info("send user operation 1")
           const pimlicoClient = createPimlicoClient({
             transport: http(process.env.BUNDLER_URL),
             chain: sepolia
@@ -154,12 +141,9 @@ const handleMcpRequest: RequestHandler = async (req, res) => {
           }).extend(erc7710BundlerActions()) as any;
 
 
-          
-          console.info("sendUserOperationWithDelegation")
           const userOperationHash = await bundlerClient!.sendUserOperationWithDelegation({
               publicClient,
               account: serverAccount,
-              //nonce,
               calls: [
               {
                   to: serverAccount.address,
@@ -169,8 +153,6 @@ const handleMcpRequest: RequestHandler = async (req, res) => {
                   delegationManager,
               },
               ],
-              // Appropriate values must be used for fee-per-gas. 
-              //paymaster: paymasterClient,
               ...fee,
               accountMetadata: accountMeta,
               
@@ -180,14 +162,13 @@ const handleMcpRequest: RequestHandler = async (req, res) => {
           });
           
           
-          console.info("transaction receipt: ", receipt)
+          console.info("payment receipt: ", receipt)
 
 
           res.json({
-            type: 'ServiceList',
+            type: 'ServiceRequestConfirmation',
             services: [
-              { name: 'Lawn Hero', location: 'Erie', rating: 4.8 },
-              { name: 'GreenCare Co', location: 'Erie', rating: 4.5 },
+              { name: 'Gator Lawn Service', location: 'Erie', confirmation: "request processed" }
             ],
           })
         } 
