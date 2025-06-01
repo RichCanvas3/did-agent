@@ -41,6 +41,8 @@ import { AAKmsSigner } from '@mcp/shared';
 
 export const SendMcpMessage: React.FC = () => {
 
+    const orgAddress = "0x383668f69e39c5D9Dcb2B4b46112de6D2D727905"
+
   const [response, setResponse] = useState<any>(null);
   const [loading, setLoading] = useState(false);
 
@@ -90,12 +92,9 @@ export const SendMcpMessage: React.FC = () => {
   const getOrgAccount = async(owner: any, signatory: any, publicClient: any) : Promise<any> => {
     
 
-
-    const seed = 10000
-
     // build individuals AA for EOA Connected Wallet
     const accountClient = await toMetaMaskSmartAccount({
-        address: "0x383668f69e39c5D9Dcb2B4b46112de6D2D727905",
+        address: orgAddress,
         client: publicClient,
         implementation: Implementation.Hybrid,
         deployParams: [owner, [], [], []],
@@ -107,45 +106,35 @@ export const SendMcpMessage: React.FC = () => {
     return accountClient
 }
 
-const getSessionAccount = async(owner: any, signatory: any, publicClient: any) : Promise<any> => {
-    
-    const seed = 1
-
-    /*
-    const environment = getDeleGatorEnvironment(sepolia.id);
-    // console.log("Environment: ", environment);
-
-    const hybridDeleGatorImpl = '0xF2846032bD52dd42FFfe639eCcd9B50777BDCc9D'
-    const customEnv: any = { ...environment, implementations: { ...environment.implementations, HybridDeleGatorImpl: hybridDeleGatorImpl }, };
-    // console.log("customEnv: ", customEnv);
-
-    // Now override the environment to use the custom implementation
-    overrideDeployedEnvironment(
-        sepolia.id,
-        "1.3.0",
-        customEnv
-    );
-    */
-
-
-    // build individuals AA for EOA Connected Wallet
-    const accountClient = await toMetaMaskSmartAccount({
-        client: publicClient,
-        implementation: Implementation.Hybrid,
-        deployParams: [owner, [], [], []],
-        signatory: signatory,
-        deploySalt: toHex(seed),
-        //chain: chain
-    });
-
-    return accountClient
-}
 
 
 
   const handleSend = async () => {
     setLoading(true);
     try {
+
+        const orgDid = "did:aa:eip155:" + chain.id + ":" + orgAddress
+        console.info("deployed org account client address: ", orgAddress)
+        console.info("org account client: ", orgAddress)
+        console.info("org account did: ", orgDid)
+
+        // get challenge from server
+        const challengeResult = await fetch('http://localhost:3001/mcp', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+            type: 'PresentationRequest',
+            from: orgDid,
+            payload: {
+                action: 'FindStateRegistration'
+            },
+            }),
+        });
+        const challengeData = await challengeResult.json()
+        console.info("........ challengeResult: ", challengeData)
+
+                
+
         const loginResp = await login()
 
         // get aa account
@@ -204,8 +193,8 @@ const getSessionAccount = async(owner: any, signatory: any, publicClient: any) :
 
         }
 
-        const orgAddress = orgAccountClient?.address.toLowerCase()
-        const orgDid = "did:aa:eip155:" + chain.id + ":" + orgAddress
+        //const orgAddress = orgAccountClient?.address.toLowerCase()
+        
 
 
         // get agent available methods, this is a capability demonstration
@@ -238,9 +227,7 @@ const getSessionAccount = async(owner: any, signatory: any, publicClient: any) :
         });
 
 
-        console.info("deployed org account client address: ", orgAddress)
-        console.info("org account client: ", orgAddress)
-        console.info("org account did: ", orgDid)
+
 
 
         const identifier = await agent.didManagerGet({ did: orgDid });
@@ -250,48 +237,28 @@ const getSessionAccount = async(owner: any, signatory: any, publicClient: any) :
         
 
 
-        const sessionAccount = await getSessionAccount(loginResp.owner, loginResp.signatory, publicClient)
-        const sessionIsDeployed = await sessionAccount?.isDeployed()
-        console.info("************* sessionIsDeployed: ", sessionIsDeployed)
+        //const sessionAccount = await getSessionAccount(loginResp.owner, loginResp.signatory, publicClient)
+        //const sessionIsDeployed = await sessionAccount?.isDeployed()
+        //console.info("************* sessionIsDeployed: ", sessionIsDeployed)
 
-        console.info("..........> sessionAccount: ", sessionAccount.address)
+        //console.info("..........> sessionAccount: ", sessionAccount.address)
 
-        /*
-        if (sessionIsDeployed == false) {
 
-            const { fast: fee } = await pimlicoClient.getUserOperationGasPrice();
-            const userOperationHash = await bundlerClient!.sendUserOperation({
-                account: sessionAccount,
-                calls: [
-                    {
-                    to: zeroAddress,
-                    },
-                ],
-                paymaster: paymasterClient,
-                ...fee,
-                });
-
-                console.info("send user operation - done")
-                const { receipt } = await bundlerClient!.waitForUserOperationReceipt({
-                hash: userOperationHash,
-            });
-
-        }
-        */
+        const serverAccount = challengeData.address
 
         const currentTime = Math.floor(Date.now() / 1000);
         const oneDayInSeconds = 24 * 60 * 60;
         const expiry = currentTime + oneDayInSeconds;
 
-        console.info(".......> orgAddress: ", orgAddress.address)
-        console.info("granting permissions for session account client: ", sessionAccount)
+        console.info(".......> orgAddress: ", orgAddress)
+        console.info("granting permissions for server account client: ", serverAccount)
         const grantedPermissions = await loginResp.signatory.walletClient.grantPermissions([{
             chainId: chain.id,
             expiry,
             signer: {
                 type: "account",
                 data: {
-                address: sessionAccount.address,
+                address: serverAccount,
                 },
             },
             permission: {
@@ -323,11 +290,10 @@ const getSessionAccount = async(owner: any, signatory: any, publicClient: any) :
 
         if (delegationManager) {
 
+            /*
             console.info("send user operation 1")
             const { fast: fee } = await pimlicoClient.getUserOperationGasPrice();
 
-
-            //const nonce = await sessionAccount.getNonce();
 
             console.info("sendUserOperationWithDelegation")
             const userOperationHash = await bundlerClient!.sendUserOperationWithDelegation({
@@ -353,24 +319,12 @@ const getSessionAccount = async(owner: any, signatory: any, publicClient: any) :
                 hash: userOperationHash,
             });
             
+            
             console.info("transaction receipt: ", receipt)
+            */
         }
 
 
-        // get challenge from server
-        const challengeResult = await fetch('http://localhost:3001/mcp', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-            type: 'PresentationRequest',
-            from: orgDid,
-            payload: {
-                action: 'FindStateRegistration'
-            },
-            }),
-        });
-        const challengeData = await challengeResult.json()
-        console.info("........ challengeResult: ", challengeData.challenge)
 
  
 
@@ -431,10 +385,12 @@ const getSessionAccount = async(owner: any, signatory: any, publicClient: any) :
                 issuer: { id: orgDid },
                 issuanceDate: new Date().toISOString(),
                 type: ['VerifiableCredential'],
-                credentialSubject: {
+                credentialSubject:
+                {
                     id: orgDid,
-                    name: 'Org Name',
+                    permission: JSON.stringify(permission),
                  },
+                 
                 '@context': ['https://www.w3.org/2018/credentials/v1'],
             },
             signer: signerAAVC

@@ -10,6 +10,8 @@
   "dependencies": {
     "@blockchain-lab-um/masca-connector": "^1.4.0",
     "@mcp/shared": "workspace:*",
+    "@metamask/delegation-toolkit": "^0.11.0",
+    "@metamask/delegation-utils": "^0.11.0",
     "@veramo/core": "^6.0.0",
     "@veramo/did-manager": "^6.0.0",
     "@veramo/did-provider-ethr": "^6.0.0",
