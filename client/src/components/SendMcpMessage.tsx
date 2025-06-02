@@ -24,32 +24,14 @@ import {  agent } from '../agents/veramoAgent';
 import {
     Implementation,
     toMetaMaskSmartAccount,
+    createCaveatBuilder,
+    createDelegation
   } from "@metamask/delegation-toolkit";
 
-
-import { erc7715ProviderActions } from "@metamask/delegation-toolkit/experimental";
 
 
 import { AAKmsSigner } from '@mcp/shared';
 
-import { usePermissions } from "../providers/PermissionProvider";
-
-import { GrantPermissionsReturnType } from "@metamask/delegation-toolkit/experimental";
-export type Permission = NonNullable<GrantPermissionsReturnType>[number];
-interface PermissionContextType {
-    permission: Permission | null;
-    smartAccount: Address | null;
-    savePermission: (permission: Permission) => void;
-    fetchPermission: () => Permission | null;
-    removePermission: () => void;
-  }
-export const PermissionContext = createContext<PermissionContextType>({
-    permission: null,
-    smartAccount: null,
-    savePermission: () => {},
-    fetchPermission: () => null,
-    removePermission: () => {},
-  });
 
 // Add RPC URL constant
 const RPC_URL = sepolia.rpcUrls.default.http[0];
@@ -61,7 +43,6 @@ const accountAbstractionAbi = [
 
 export const SendMcpMessage: React.FC = () => {
 
-    const { savePermission } = usePermissions();
 
   const [response, setResponse] = useState<any>(null);
   const [loading, setLoading] = useState(false);
@@ -94,17 +75,14 @@ export const SendMcpMessage: React.FC = () => {
         account: owner as `0x${string}`
     });
 
-    const walletClientWithDelegation = walletClient.extend((client) => ({
-        ...erc7715ProviderActions()(client as any),
-        signTypedData: walletClient.signTypedData
-    })) as any;
+
 
     console.info("........> wallet address: ", owner)
 
 
     return {
         owner,
-        signatory: { walletClient: walletClientWithDelegation },
+        signatory: { walletClient: walletClient },
     };
   };
 
@@ -112,16 +90,14 @@ export const SendMcpMessage: React.FC = () => {
   const getClientSubscriberSmartAccount = async(
     owner: any, 
     signatory: any, 
-    publicClient: any,
-    address: `0x${string}`
+    publicClient: any
   ) : Promise<any> => {
     
     // Issue with metamask smart contract created.  I don't have an owner address and cannot get signature using ERC-1271
     // For now we return a default account for DID, VC and VP
     // Money is still taken out of the metamask smart wallet defined by address.
-    
+
     const accountClient = await toMetaMaskSmartAccount({
-        //address,
         client: publicClient as any,
         implementation: Implementation.Hybrid,
         deployParams: [
@@ -190,60 +166,23 @@ export const SendMcpMessage: React.FC = () => {
 
 
 
-        // generate payment permission for service account
+        // generate payment delegation for service account
         const smartServiceAccountAddress = challengeData.address
 
-        const currentTime = Math.floor(Date.now() / 1000);
-        const oneDayInSeconds = 24 * 60 * 60;
-        const expiry = currentTime + oneDayInSeconds;
-
-        console.info("granting permissions for service payment: ", smartServiceAccountAddress)
-        const grantedPermissions = await loginResp.signatory.walletClient.grantPermissions([{
-            chainId: chain.id,
-            expiry,
-            signer: {
-                type: "account",
-                data: {
-                address: smartServiceAccountAddress,
-                },
-            },
-            permission: {
-                type: "native-token-stream",
-                data: {
-                    initialAmount: BigInt(1e15), 
-                    amountPerSecond: BigInt(1e15), 
-                    maxAmount: parseEther("0.1"),
-                    startTime: currentTime,
-                    justification: "Payment for a month long service subscription",
-                },
-            },
-        }]);
-
-
-        // permissions in EOA Wallet and not smart account
-        const permission = grantedPermissions[0]
-        savePermission(permission)
-
-        
-        const { accountMeta, context, signerMeta, address } = permission;
-
-        //console.log('context in RedeemDelegation.tsx:', context);
-        //console.log('accountMeta in RedeemDelegation.tsx:', accountMeta);
-        //console.log('signerMeta in RedeemDelegation.tsx:', signerMeta);
-  
-        if (!signerMeta) {
-          console.error("No signer meta found");
-          setLoading(false);
-          return;
-        }
-
-
-        // subscription client delegator:  where funds are coming out of to pay for subscription
-        //const clientSubscriberSmartAddress = "0xaC70Cb86615e09eFBEcB9bA29F5B35382A3e6cEc"
-
-
-        const clientSubscriptionAccountClient = await getClientSubscriberSmartAccount(loginResp.owner, loginResp.signatory, publicClient, address)
+        const clientSubscriptionAccountClient = await getClientSubscriberSmartAccount(loginResp.owner, loginResp.signatory, publicClient)
         console.info("client smart account address: ",  clientSubscriptionAccountClient.address)
+
+        const environment = clientSubscriptionAccountClient.environment;
+        const caveatBuilder = createCaveatBuilder(environment);
+
+        // get list of careat types: https://docs.gator.metamask.io/how-to/create-delegation/restrict-delegation
+        caveatBuilder.addCaveat("nativeTokenPeriodTransfer",
+            10n, // 1 ETH in wei
+            86400, // 1 day in seconds
+            1743763600, // April 4th, 2025, at 00:00:00 UTC
+          )
+        const caveats = caveatBuilder.build()
+
 
         // Ensure account is properly initialized
         if (!clientSubscriptionAccountClient || !clientSubscriptionAccountClient.address) {
@@ -296,6 +235,24 @@ export const SendMcpMessage: React.FC = () => {
         }
 
 
+        // create delegation to server smart account providing service these caveats
+        let paymentDel = createDelegation({
+            from: clientSubscriptionAccountClient.address,
+            to: smartServiceAccountAddress,
+            caveats: [] }
+        );
+
+        const signature = await clientSubscriptionAccountClient.signDelegation({
+            delegation: paymentDel,
+        });
+
+
+        paymentDel = {
+            ...paymentDel,
+            signature,
+        }
+
+
         // get agent available methods, this is a capability demonstration
         // const availableMethods = await agent.availableMethods()
 
@@ -343,7 +300,7 @@ export const SendMcpMessage: React.FC = () => {
         console.info("didDoc: ", didDoc)
         */
 
-        // construct the verifiable credential and presentation for service request and payment permission
+        // construct the verifiable credential and presentation for service request and payment delegation
 
         // @ts-ignore
         const signerAAVC: AAKmsSigner = {
@@ -391,7 +348,7 @@ export const SendMcpMessage: React.FC = () => {
                 credentialSubject:
                 {
                     id: clientSubscriberDid,
-                    permission: JSON.stringify(permission),
+                    paymentDelegation: JSON.stringify(paymentDel),
                  },
                  
                 '@context': ['https://www.w3.org/2018/credentials/v1'],
@@ -400,7 +357,7 @@ export const SendMcpMessage: React.FC = () => {
 
         })
 
-        console.info("service request and payment permission verifiable credential: ", vcAA)    
+        console.info("service request and payment delegation verifiable credential: ", vcAA)    
          
 
         // demonstrate verification of the verifiable credential

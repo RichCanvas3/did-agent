@@ -10,19 +10,22 @@ import { createPublicClient, createWalletClient, http, createClient, custom, par
 import { privateKeyToAccount, PrivateKeyAccount, generatePrivateKey } from "viem/accounts";
 
 import { createPimlicoClient } from "permissionless/clients/pimlico";
-import { erc7710BundlerActions } from "@metamask/delegation-toolkit/experimental";
 
 const mcpRoutes: express.Router = express.Router()
 
 import {
   Implementation,
   toMetaMaskSmartAccount,
+  DelegationFramework,
+  SINGLE_DEFAULT_MODE,
 } from "@metamask/delegation-toolkit";
 import { sepolia } from 'viem/chains';
 
 import {
   createBundlerClient,
 } from "viem/account-abstraction";
+
+import { encodeNonce } from "permissionless/utils"
 
 const getServerAccount = async() : Promise<any> => {
     
@@ -105,23 +108,12 @@ const handleMcpRequest: RequestHandler = async (req, res) => {
         console.info("process the payment held in the verifiable credential ")
 
         const vc = JSON.parse(presentation.verifiableCredential[0])
-        const permission = JSON.parse(vc.credentialSubject.permission)
+        const paymentDelegation = JSON.parse(vc.credentialSubject.paymentDelegation)
 
-        console.info("payment permission: ", permission)
+        console.info("payment delegation: ", paymentDelegation)
 
-        const { accountMeta, context, signerMeta } = permission;
 
-        //console.log('context in RedeemDelegation.tsx:', context);
-        //console.log('accountMeta in RedeemDelegation.tsx:', accountMeta);
-        //console.log('signerMeta in RedeemDelegation.tsx:', signerMeta);
-  
-        if (!signerMeta) {
-          console.error("No signer meta found");
-          return;
-        }
-        const { delegationManager } = signerMeta;
-
-        if (delegationManager) {
+        if (paymentDelegation) {
 
           const publicClient = createPublicClient({
             chain: sepolia,
@@ -140,27 +132,38 @@ const handleMcpRequest: RequestHandler = async (req, res) => {
             paymaster: true,
           }) as any;
 
-          const bundlerClientWithDelegation = bundlerClient.extend((client: any) => ({
-            ...erc7710BundlerActions()(client)
-          }));
 
-          const userOperationHash = await bundlerClientWithDelegation.sendUserOperationWithDelegation({
-              publicClient,
-              account: serverAccount,
-              calls: [
-              {
-                  to: serverAccount.address,
-                  data: "0x",
-                  value: 1n,
-                  permissionsContext: context,
-                  delegationManager,
-              },
-              ],
-              ...fee,
-              accountMetadata: accountMeta,
-              
+          const executions = [
+            {
+              target: serverAccount.address,
+              value: 1n,
+              callData: "0x" as `0x${string}`
+            },
+          ];
+
+          const data = DelegationFramework.encode.redeemDelegations({
+            delegations: [ [paymentDelegation] ],
+            modes: [SINGLE_DEFAULT_MODE],
+            executions: [executions]
           });
-          const { receipt } = await bundlerClientWithDelegation.waitForUserOperationReceipt({
+
+
+          const key1 = BigInt(Date.now()) 
+          const nonce1 = encodeNonce({ key: key1, sequence: 0n })
+          const userOperationHash = await bundlerClient.sendUserOperation({
+            account: serverAccount,
+            calls: [
+              {
+                to: serverAccount.address,
+                data,
+              },
+            ],
+            nonce: nonce1,
+            ...fee
+            
+          });
+
+          const { receipt } = await bundlerClient.waitForUserOperationReceipt({
               hash: userOperationHash,
           });
           
