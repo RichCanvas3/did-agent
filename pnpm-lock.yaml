@@ -183,6 +183,10 @@ importers:
         version: 10.9.2(@types/node@22.15.24)(typescript@5.8.3)
 
   shared:
+    dependencies:
+      '@veramo/core':
+        specifier: ^6.0.0
+        version: 6.0.0
     devDependencies:
       typescript:
         specifier: ^5.0.0

@@ -19,5 +19,8 @@
   },
   "devDependencies": {
     "typescript": "^5.0.0"
+  },
+  "dependencies": {
+    "@veramo/core": "^6.0.0"
   }
 }
