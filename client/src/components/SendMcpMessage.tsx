@@ -34,7 +34,7 @@ import { AAKmsSigner } from '@mcp/shared';
 
 
 // Add RPC URL constant
-const RPC_URL = sepolia.rpcUrls.default.http[0];
+const RPC_URL = import.meta.env.SEPOLIA_RPC_URL as string;
 
 // Add Account Abstraction ABI
 const accountAbstractionAbi = [
@@ -115,6 +115,7 @@ export const SendMcpMessage: React.FC = () => {
     console.log("Smart account deployment status:", isDeployed);
 
     if (isDeployed) {
+        /*
         try {
             const provider = new ethers.JsonRpcProvider(RPC_URL);
             const contract = new ethers.Contract(accountClient.address, accountAbstractionAbi, provider);
@@ -123,6 +124,7 @@ export const SendMcpMessage: React.FC = () => {
         } catch (error) {
             console.warn("Could not get owner of deployed account:", error);
         }
+        */
     } else {
         console.log("Smart account not yet deployed");
     }
@@ -195,6 +197,21 @@ export const SendMcpMessage: React.FC = () => {
         console.info("client subscriber smart account address : ", clientSubscriberSmartAddress)
         console.info("client subscriber did: ", clientSubscriberDid)
 
+        // get did document for client subscriber
+        const clientSubscriberEthrDid = "did:ethr:" + clientSubscriberSmartAddress.toLowerCase()
+        const clientSubscriberEthrDidDoc = await agent.resolveDid({didUrl: clientSubscriberEthrDid})
+        console.info("client subscriber ethr did document: ", clientSubscriberEthrDidDoc)
+
+
+        const eoaEthrDid = "did:ethr:" + loginResp.owner.toLowerCase()
+        const eoaEthrDidDoc = await agent.resolveDid({didUrl: eoaEthrDid})
+        console.info("eoa ethr did document: ", eoaEthrDidDoc)
+
+        const aaEthrDid = "did:ethr:" + clientSubscriberSmartAddress.toLowerCase()
+        const aaEthrDidDoc = await agent.resolveDid({didUrl: aaEthrDid})
+        console.info("aa ethr did document: ", aaEthrDidDoc)
+
+
 
         const isDeployed = await clientSubscriptionAccountClient?.isDeployed()
         console.info("************* isDeployed: ", isDeployed)
@@ -239,7 +256,7 @@ export const SendMcpMessage: React.FC = () => {
         let paymentDel = createDelegation({
             from: clientSubscriptionAccountClient.address,
             to: smartServiceAccountAddress,
-            caveats: [] }
+            caveats: caveats }
         );
 
         const signature = await clientSubscriptionAccountClient.signDelegation({
