@@ -51,8 +51,6 @@ export function getResolver(): ResolverRegistry {
       options: DIDResolutionOptions
     ): Promise<DIDResolutionResult> => {
 
-     console.info(`********** Resolving DID: ${did}`);
-
       const contentType = options.accept || DID_JSON;
       const response: DIDResolutionResult = {
         didResolutionMetadata: { contentType },

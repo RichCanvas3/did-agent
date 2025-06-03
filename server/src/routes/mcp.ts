@@ -2,7 +2,7 @@ import express, { Request, Response, RequestHandler } from 'express'
 import { agent } from '../agents/veramoAgent.js'
 import sanitizeHtml from 'sanitize-html';
 import dotenv from 'dotenv';
-
+import { ethers } from "ethers";
 
 dotenv.config();
 
@@ -11,7 +11,7 @@ import { privateKeyToAccount, PrivateKeyAccount, generatePrivateKey } from "viem
 
 import { createPimlicoClient } from "permissionless/clients/pimlico";
 
-const mcpRoutes: express.Router = express.Router()
+
 
 import {
   Implementation,
@@ -26,6 +26,39 @@ import {
 } from "viem/account-abstraction";
 
 import { encodeNonce } from "permissionless/utils"
+
+
+
+const mcpRoutes: express.Router = express.Router()
+const provider = new ethers.JsonRpcProvider(process.env.SEPOLIA_RPC_URL);
+
+export type AADidParts = {
+  did: string;
+  method: string;
+  namespace: string;
+  chainId: string;
+  address: string;
+  fragment?: string;
+};
+function parseAADid(didUrl: string): AADidParts {
+  const [baseDid, fragment] = didUrl.split("#");
+  const parts = baseDid.split(":");
+
+  if (parts.length !== 5 || parts[0] !== "did" || parts[1] !== "aa") {
+    throw new Error(`Invalid did:aa format: ${didUrl}`);
+  }
+
+  const [, method, namespace, chainId, address] = parts;
+
+  return {
+    did: baseDid,
+    method,
+    namespace,
+    chainId,
+    address,
+    fragment,
+  };
+}
 
 const getServerAccount = async() : Promise<any> => {
     
@@ -46,7 +79,7 @@ const getServerAccount = async() : Promise<any> => {
   }
 
   const serverAccount = privateKeyToAccount(serverPrivateKey);
-  console.info("serverAccount: ", serverAccount)
+  console.info("gator link server EOA: ", serverAccount)
 
 
   const accountClient = await toMetaMaskSmartAccount({
@@ -65,16 +98,25 @@ const getServerAccount = async() : Promise<any> => {
   return accountClient
 }
 
+
+
+async function getBalance(address: string) {
+  const balance = await provider.getBalance(address);
+  const eth = ethers.formatEther(balance);
+  console.log(`Balance: ${eth} ETH for address: ${address}`);
+  return eth;
+}
+
 const handleMcpRequest: RequestHandler = async (req, res) => {
   const { type, sender, payload } = req.body
 
   const serverAccount = await getServerAccount()
 
-
+  
   const challenge = 'hello world ....' // make this random in real world implementation
   if (type == 'PresentationRequest') {
 
-    console.info("----------> received presentation request and returning address and challenge: ", serverAccount.address)
+    console.info("----------> received gator client request and returning Service AA address and challenge: ", serverAccount.address)
     res.json({
         type: 'Challenge',
         challenge: challenge,
@@ -85,40 +127,46 @@ const handleMcpRequest: RequestHandler = async (req, res) => {
 
   if (type === 'AskForService') {
     try {
-      console.info("----------> request has VC of request and payment information ")
+      console.info("----------> received gator client service request with VC containing recuring payment information ")
 
       const clientSmartAccountDid = sanitizeHtml(payload.presentation.holder as string)
+
+      console.info("gator client AA DID: ", clientSmartAccountDid)
 
       const presentation = payload.presentation
 
       // get DID Document associated with client requesting service
-      const result =agent.resolveDid({
+      const result = await agent.resolveDid({
           didUrl: clientSmartAccountDid
       })
-      
+      console.info("gator client AA DID Document: ", result)
 
       // verify the Credential signature leveraging the smart account
       const verificationResult = await  agent.verifyPresentationEIP1271({
             presentation
       })
-      console.info("are we good here?: ", verificationResult)
+      console.info("gator client Verifiable Presentation and VC validity: ", verificationResult)
 
       if (verificationResult) {
 
-        console.info("process the payment held in the verifiable credential ")
+        console.info("gator client presentation is valid, process the payment held in the verifiable credential ")
 
         const vc = JSON.parse(presentation.verifiableCredential[0])
         const paymentDelegation = JSON.parse(vc.credentialSubject.paymentDelegation)
 
-        console.info("payment delegation: ", paymentDelegation)
+        console.info("here is the gator client payment delegation: ", paymentDelegation)
 
 
         if (paymentDelegation) {
 
-          const publicClient = createPublicClient({
-            chain: sepolia,
-            transport: http(),
-          });
+
+          console.info("make first payment to gator service provider")
+
+          // get gator client AA balance
+          const gatorClientBalance = await getBalance(parseAADid(clientSmartAccountDid).address)
+          console.info("gator client AA balance: ", gatorClientBalance)
+
+
 
           const pimlicoClient = createPimlicoClient({
             transport: http(process.env.BUNDLER_URL),
@@ -168,8 +216,11 @@ const handleMcpRequest: RequestHandler = async (req, res) => {
           });
           
           
-          console.info("payment receipt: ", receipt)
+          console.info("payment received: ", receipt)
 
+          // get gator service AA balance
+          const gatorServiceBalance = await getBalance(serverAccount.address)
+          console.info("gator service AA balance: ", gatorServiceBalance)
 
           res.json({
             type: 'ServiceRequestConfirmation',

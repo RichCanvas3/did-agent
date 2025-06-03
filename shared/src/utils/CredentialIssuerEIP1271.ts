@@ -49,14 +49,14 @@ import { optimism, mainnet, sepolia } from "viem/chains";
 
 import { getEthTypesFromInputDoc } from 'eip-712-types-generation'
 
-  export type AADidParts = {
-      did: string;
-      method: string;
-      namespace: string;
-      chainId: string;
-      address: string;
-      fragment?: string;
-    };
+export type AADidParts = {
+    did: string;
+    method: string;
+    namespace: string;
+    chainId: string;
+    address: string;
+    fragment?: string;
+  };
 
 export class CredentialIssuerEIP1271 implements IAgentPlugin {
   readonly methods: ICredentialIssuerEIP1271
@@ -95,6 +95,8 @@ export class CredentialIssuerEIP1271 implements IAgentPlugin {
         fragment,
       };
     }
+
+
 
   async createVerifiableCredentialEIP1271(
     args: ICreateVerifiableCredentialEIP1271Args,
@@ -320,17 +322,8 @@ export class CredentialIssuerEIP1271 implements IAgentPlugin {
 
     const did = (credential.issuer as any).id
     console.info(">>>>>>>>>>>> credential issuer did: ", did)
-    function getAddressFromDidAa(did: string): string | null {
-      const parts = did.split(':');
-      if (parts.length === 5 && parts[0] === 'did' && parts[1] === 'aa' && parts[2] === 'eip155') {
-        const address = parts[4];
-        if (/^0x[a-fA-F0-9]{40}$/.test(address)) {
-          return address;
-        }
-      }
-      return null;
-    }
-    const address = getAddressFromDidAa(did as `0x${string}`);
+    
+    const address = this.parseAADid(did as `0x${string}`).address;
     console.info("address used to validate signature: ", address)
 
     // validate signature using contract EIP-1271
@@ -352,19 +345,14 @@ export class CredentialIssuerEIP1271 implements IAgentPlugin {
     if (!issuer || typeof issuer === 'undefined') {
       throw new Error('invalid_argument: credential.issuer must not be empty')
     }
-    console.info("issuer: ", issuer)
-    const aa = await context.agent.resolveDid({ didUrl: issuer, options: args.resolutionOptions })
 
-    console.info("aa: ", aa)
+    const aa = await context.agent.resolveDid({ didUrl: issuer, options: args.resolutionOptions })
     const didDocument = await resolveDidOrThrow(issuer, context, args.resolutionOptions)
 
     if (didDocument.verificationMethod && address) {
-      console.info("didDocument.verificationMethod: ", didDocument.verificationMethod)
       for (const verificationMethod of didDocument.verificationMethod) {
-        console.info("verificationMethod: ", verificationMethod)
         const ethAddress = getEthereumAddress(verificationMethod)?.toLowerCase()
-        console.info("ethAddress: ", ethAddress)
-        if (getEthereumAddress(verificationMethod)?.toLowerCase() === address.toLowerCase()) {
+        if (ethAddress === address.toLowerCase()) {
           return true
         }
       }
@@ -424,25 +412,14 @@ export class CredentialIssuerEIP1271 implements IAgentPlugin {
             });
 
 
-    console.info("presentation.holder: ", presentation.holder)
-    const did = presentation.holder
-    function getAddressFromDidAa(did: string): string | null {
-      const parts = did.split(':');
-      if (parts.length === 5 && parts[0] === 'did' && parts[1] === 'aa' && parts[2] === 'eip155') {
-        const address = parts[4];
-        if (/^0x[a-fA-F0-9]{40}$/.test(address)) {
-          return address;
-        }
-      }
-      return null;
-    }
-    const address = getAddressFromDidAa(did);
+
+    const clientAddress = this.parseAADid(presentation.holder).address;
 
     // validate signature using contract EIP-1271
     const { data: isValidSignature } = await publicClient.call({
-        account: address as `0x${string}`,
+        account: clientAddress as `0x${string}`,
         data: isValidSignatureData,
-        to: address as `0x${string}`,
+        to: clientAddress as `0x${string}`,
     });
 
     if (!isValidSignature?.startsWith('0x1626ba7e')) {
@@ -451,22 +428,22 @@ export class CredentialIssuerEIP1271 implements IAgentPlugin {
       return false
     }
 
-    // verify the holder did
-    const holder = extractIssuer(presentation)
-    if (!holder || typeof holder === 'undefined') {
+    // verify the client did
+    const clientDid = extractIssuer(presentation)
+    if (!clientDid || typeof clientDid === 'undefined') {
       throw new Error('invalid_argument: presentation.holder must not be empty')
     }
 
-    console.info("holder: ", holder)
-    const didDocument = await resolveDidOrThrow(holder, context, args.resolutionOptions)
+    console.info("gator client AA Did: ", clientDid)
+    const clientDidDocument = await resolveDidOrThrow(clientDid, context, args.resolutionOptions)
 
-    if (didDocument.verificationMethod && address) {
-      console.info("didDocument.verificationMethod: ", didDocument.verificationMethod)
-      for (const verificationMethod of didDocument.verificationMethod) {
+    if (clientDidDocument.verificationMethod && clientAddress) {
+      console.info("gator client didDocument.verificationMethod: ", clientDidDocument.verificationMethod)
+      for (const verificationMethod of clientDidDocument.verificationMethod) {
         console.info("verificationMethod: ", verificationMethod)
         const ethAddress = getEthereumAddress(verificationMethod)?.toLowerCase()
         console.info("ethAddress: ", ethAddress)
-        if (getEthereumAddress(verificationMethod)?.toLowerCase() === address.toLowerCase()) {
+        if (getEthereumAddress(verificationMethod)?.toLowerCase() === clientAddress.toLowerCase()) {
           return true
         }
       }

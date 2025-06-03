@@ -49,6 +49,7 @@ export const SendMcpMessage: React.FC = () => {
 
   const chain = sepolia;
 
+  
   const provider = (window as any).ethereum;
   const login = async () => {
 
@@ -132,7 +133,13 @@ export const SendMcpMessage: React.FC = () => {
     return accountClient;
 }
 
-
+async function getBalance(address: string) {
+    const sepProv = new ethers.JsonRpcProvider(import.meta.env.VITE_SEPOLIA_RPC_URL);
+    const balance = await sepProv.getBalance(address);
+    const eth = ethers.formatEther(balance);
+    console.log(`Balance: ${eth} ETH for address: ${address}`);
+    return eth;
+}
 
 
   const handleSend = async () => {
@@ -205,12 +212,18 @@ export const SendMcpMessage: React.FC = () => {
 
         const eoaEthrDid = "did:ethr:" + loginResp.owner.toLowerCase()
         const eoaEthrDidDoc = await agent.resolveDid({didUrl: eoaEthrDid})
-        console.info("eoa ethr did document: ", eoaEthrDidDoc)
+        console.info("gator client eoa ethr did document: ", eoaEthrDidDoc)
+
+        const eoaBalance = await getBalance(loginResp.owner.toLowerCase())
+        console.info("client subscriber eoa balance: ", eoaBalance)
 
         const aaEthrDid = "did:ethr:" + clientSubscriberSmartAddress.toLowerCase()
         const aaEthrDidDoc = await agent.resolveDid({didUrl: aaEthrDid})
-        console.info("aa ethr did document: ", aaEthrDidDoc)
+        console.info("gator client aa ethr did document: ", aaEthrDidDoc)
 
+
+        const aaBalance = await getBalance(clientSubscriberSmartAddress)
+        console.info("client subscriber smart account balance: ", aaBalance)
 
 
         const isDeployed = await clientSubscriptionAccountClient?.isDeployed()
