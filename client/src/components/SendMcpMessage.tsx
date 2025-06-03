@@ -28,8 +28,10 @@ import {
     createDelegation
   } from "@metamask/delegation-toolkit";
 
-
-
+import { createPimlicoClient } from "permissionless/clients/pimlico";
+import {
+    createBundlerClient,
+} from "viem/account-abstraction";
 import { AAKmsSigner } from '@mcp/shared';
 
 
@@ -230,29 +232,27 @@ async function getBalance(address: string) {
         console.info("************* isDeployed: ", isDeployed)
         if (isDeployed == false) {
 
-            /*
 
             const pimlicoClient = createPimlicoClient({
-                transport: http(BUNDLER_URL),
+                transport: http(import.meta.env.VITE_BUNDLER_URL),
                 chain: sepolia
             });
 
             const bundlerClient = createBundlerClient({
-                transport: http(BUNDLER_URL) as any,
+                transport: http(import.meta.env.VITE_BUNDLER_URL) as any,
                 chain: sepolia as any,
                 paymaster: true,
-            }).extend(erc7710BundlerActions()) as any;
+            }) as any;
 
 
             const { fast: fee } = await pimlicoClient.getUserOperationGasPrice();
             const userOperationHash = await bundlerClient!.sendUserOperation({
-                account: orgAccountClient,
+                account: clientSubscriptionAccountClient,
                 calls: [
                     {
                     to: zeroAddress,
                     },
                 ],
-                paymaster: paymasterClient,
                 ...fee,
                 });
 
@@ -260,7 +260,7 @@ async function getBalance(address: string) {
                 const { receipt } = await bundlerClient!.waitForUserOperationReceipt({
                 hash: userOperationHash,
             });
-            */
+
 
         }
 
