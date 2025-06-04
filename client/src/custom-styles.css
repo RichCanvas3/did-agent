@@ -1,0 +1,51 @@
+div.main-header {
+  background-color: rgb(227, 227, 227);
+  color: rgb(0, 0, 0);
+  width: calc(100vw - 20px);
+  text-align: center;
+  padding: 10px;
+  margin: 0px;
+}
+
+h1.main-header-text {
+  font-size: 30px;
+}
+
+div.content {
+  color: rgb(0, 0, 0);
+  min-width: 200px;
+  max-width: 900px;
+  padding: 10px;
+  margin: 0 auto;
+}
+
+button.service-button:hover {
+  background-color: rgb(140, 232, 255);
+  color: rgb(0, 0, 0);
+  transition: 0.5s;
+}
+
+nav.main-nav {
+  display: flex;
+  padding: 20px;
+}
+
+ul.main-nav-ul {
+  margin: 0px auto;
+  padding: 0px;
+}
+
+li.main-nav-li {
+  color: black;
+  display: inline-block;
+  border-radius: 10px;
+  margin: 0px 10px;
+  padding: 4px 0px;
+  min-width: 150px;
+  text-align: center;
+}
+
+li.main-nav-li:hover {
+  background-color: rgb(234, 234, 234);
+  transition: 0.5s;
+}

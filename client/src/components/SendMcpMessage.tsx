@@ -1,6 +1,5 @@
 // src/components/SendMcpMessage.tsx
 
-
 import React from 'react';
 import {
     createContext,
@@ -33,7 +32,7 @@ import {
     createBundlerClient,
 } from "viem/account-abstraction";
 import { AAKmsSigner } from '@mcp/shared';
-
+import '../custom-styles.css';
 
 // Add RPC URL constant
 const RPC_URL = import.meta.env.SEPOLIA_RPC_URL as string;
@@ -51,7 +50,7 @@ export const SendMcpMessage: React.FC = () => {
 
   const chain = sepolia;
 
-  
+
   const provider = (window as any).ethereum;
   const login = async () => {
 
@@ -91,11 +90,11 @@ export const SendMcpMessage: React.FC = () => {
 
 
   const getClientSubscriberSmartAccount = async(
-    owner: any, 
-    signatory: any, 
+    owner: any,
+    signatory: any,
     publicClient: any
   ) : Promise<any> => {
-    
+
     // Issue with metamask smart contract created.  I don't have an owner address and cannot get signature using ERC-1271
     // For now we return a default account for DID, VC and VP
     // Money is still taken out of the metamask smart wallet defined by address.
@@ -149,7 +148,7 @@ async function getBalance(address: string) {
     try {
 
 
-          
+
 
         // get challenge from organization providing service,  along with challenge phrase
         const challengeResult : any = await fetch('http://localhost:3001/mcp', {
@@ -166,7 +165,7 @@ async function getBalance(address: string) {
         const challengeData : any = await challengeResult.json()
         console.info("........ challengeResult: ", challengeData)
 
-                
+
 
         const loginResp = await login()
         const publicClient = createPublicClient({
@@ -202,7 +201,7 @@ async function getBalance(address: string) {
 
         const clientSubscriberSmartAddress = clientSubscriptionAccountClient.address.toLowerCase()
         const clientSubscriberDid = "did:aa:eip155:" + chain.id + ":" + clientSubscriberSmartAddress.toLowerCase()
-        
+
         console.info("client subscriber smart account address : ", clientSubscriberSmartAddress)
         console.info("client subscriber did: ", clientSubscriberDid)
 
@@ -299,7 +298,7 @@ async function getBalance(address: string) {
             kms: 'aa',
             kid: 'aa-' + clientSubscriberSmartAddress,
             type: 'Secp256k1',
-            publicKeyHex: '0x', // replace with actual public key 
+            publicKeyHex: '0x', // replace with actual public key
             privateKeyHex: '0x' // replace with actual private key if available
         });
 
@@ -312,7 +311,7 @@ async function getBalance(address: string) {
 
 
 
- 
+
 
         /*
         // try out signing a message, just a capability demonstration
@@ -380,25 +379,25 @@ async function getBalance(address: string) {
                     id: clientSubscriberDid,
                     paymentDelegation: JSON.stringify(paymentDel),
                  },
-                 
+
                 '@context': ['https://www.w3.org/2018/credentials/v1'],
             },
             signer: signerAAVC
 
         })
 
-        console.info("service request and payment delegation verifiable credential: ", vcAA)    
-         
+        console.info("service request and payment delegation verifiable credential: ", vcAA)
+
 
         // demonstrate verification of the verifiable credential
         const vcVerified = await agent.verifyCredentialEIP1271({ credential: vcAA, });
-        console.info("verify VC: ", vcVerified) 
-        
+        console.info("verify VC: ", vcVerified)
+
 
         // @ts-ignore
         const signerAAVP: AAKmsSigner = {
 
-            
+
             async signTypedData(
                 domain: TypedDataDomain,
                 types: Record<string, Array<TypedDataField>>,
@@ -441,17 +440,17 @@ async function getBalance(address: string) {
                 signer: signerAAVP
             }
         );
-        console.info("verifiable presentation: ", vpAA) 
+        console.info("verifiable presentation: ", vpAA)
 
         // demonstrate verification of the verifiable presentation
         const vpVerified = await agent.verifyPresentationEIP1271({ presentation: vpAA, });
-        console.info("verify VP: ", vpVerified) 
+        console.info("verify VP: ", vpVerified)
 
 
 
 
 
-        /* 
+        /*
             vc and vp using masca if using did:dthr or did:pkh
 
 
@@ -460,7 +459,7 @@ async function getBalance(address: string) {
         const mascaRslt = await enableMasca(address, {
             snapId: snapId,
             //supportedMethods: ['did:ethr', 'did:key', 'did:pkh'], // Specify supported DID methods
-            supportedMethods: ['did:pkh'], 
+            supportedMethods: ['did:pkh'],
         });
 
         const mascaApi = await mascaRslt.data.getMascaApi();
@@ -488,7 +487,7 @@ async function getBalance(address: string) {
         const unsignedCredential = {
             "@context": ["https://www.w3.org/2018/credentials/v1"],
             type: ["VerifiableCredential", "ExampleCredential"],
-            issuer: holderDid, 
+            issuer: holderDid,
             issuanceDate: new Date().toISOString(),
             credentialSubject: {
                 id: holderDid,
@@ -511,14 +510,14 @@ async function getBalance(address: string) {
         console.info("challenge phrase: ", challengeData.challenge)
 
         // 2. Package VC into VP
-        
+
         const holder = holderDid
         const challenge = challengeData.challenge
         const domain = "wallet.myorgwallet.io"
 
         console.info("create vp with subject and challenge: ", holder, challenge)
-        
-     
+
+
         // did has to be loaded and to do that private key is needed
         const presentationResult = await agent.createVerifiablePresentation({
         presentation: {
@@ -529,9 +528,9 @@ async function getBalance(address: string) {
         domain,
         challenge: challenge
         });
- 
 
-    
+
+
         const proofOptions = { type: 'EthereumEip712Signature2021', domain, challenge };
         const presentationResult = await mascaApi.createPresentation({
             vcs,
@@ -571,14 +570,15 @@ async function getBalance(address: string) {
   };
 
   return (
-    <div style={{ padding: 20 }}>
-      <h2>Gator Lawn Service</h2>
-      <button onClick={handleSend} disabled={loading}>
+    <div>
+      <h2> Gator Lawn Service </h2>
+
+      <button className='service-button' onClick={handleSend} disabled={loading}>
         {loading ? 'Sending...' : 'Send MCP Lawn Service Request and Payment'}
       </button>
 
       {response && (
-        <div style={{ marginTop: 20 }}>
+        <div style={{ marginTop: 20, backgroundColor: 'black', color: 'white', padding: '2px 20px', borderRadius: '10px' }}>
           <h3>Response:</h3>
           <pre>{JSON.stringify(response, null, 2)}</pre>
         </div>
