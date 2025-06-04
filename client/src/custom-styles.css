@@ -1,18 +1,18 @@
 div.main-header {
-  background-color: rgb(227, 227, 227);
-  color: rgb(0, 0, 0);
-  width: calc(100vw - 20px);
+  background-color: #008080;
+  color: #ffffff;
+  width: calc(100vw - 40px);
   text-align: center;
-  padding: 10px;
+  padding: 20px;
   margin: 0px;
 }
 
 h1.main-header-text {
-  font-size: 30px;
+  font-size: 36px;
 }
 
 div.content {
-  color: rgb(0, 0, 0);
+  color: #121212;
   min-width: 200px;
   max-width: 900px;
   padding: 10px;
@@ -20,14 +20,14 @@ div.content {
 }
 
 button.service-button:hover {
-  background-color: rgb(140, 232, 255);
-  color: rgb(0, 0, 0);
+  background-color: #8cffa5;
+  color: #121212;
   transition: 0.5s;
 }
 
 nav.main-nav {
   display: flex;
-  padding: 20px;
+  padding: 40px;
 }
 
 ul.main-nav-ul {
@@ -36,7 +36,8 @@ ul.main-nav-ul {
 }
 
 li.main-nav-li {
-  color: black;
+  background-color: #f0f0f0;
+  color: #121212;
   display: inline-block;
   border-radius: 10px;
   margin: 0px 10px;
@@ -46,6 +47,6 @@ li.main-nav-li {
 }
 
 li.main-nav-li:hover {
-  background-color: rgb(234, 234, 234);
+  background-color: rgb(140, 255, 165);
   transition: 0.5s;
 }

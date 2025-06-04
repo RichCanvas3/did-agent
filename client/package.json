@@ -11,6 +11,7 @@
   },
   "dependencies": {
     "@blockchain-lab-um/masca-connector": "^1.4.0",
+    "@heroicons/react": "^2.2.0",
     "@mcp/shared": "workspace:*",
     "@metamask/delegation-toolkit": "^0.11.0",
     "@veramo/core": "^6.0.0",
@@ -31,6 +32,7 @@
     "pkh-did-resolver": "^2.0.0",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
+    "react-router-dom": "^7.6.2",
     "viem": "^2.30.5",
     "web-did-resolver": "^2.0.30"
   },
