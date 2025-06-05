@@ -9,6 +9,7 @@ const Header: React.FC = () => {
 
       <nav className='main-nav'>
         <ul className='main-nav-ul'>
+
           <a className='main-nav-link' href="/">
             <li className='main-nav-li'> Introduction </li>
           </a>
@@ -16,6 +17,7 @@ const Header: React.FC = () => {
           <a className='main-nav-link' href="/example">
             <li className='main-nav-li'> Example </li>
           </a>
+
         </ul>
       </nav>
     </div>
