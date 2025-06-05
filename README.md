@@ -20,11 +20,11 @@ pnpm install
 pnpm i --save-dev @types/debug -w
 pnpm run build
 
-open localhost:5173
+open http:localhost:5173
 cd client
 pnpm run dev
 
-open localhost:3001
+open http:localhost:3001
 cd server
 npx tsx src/index.ts
 ```
@@ -98,4 +98,3 @@ MAINNET_RPC_URL=your_mainnet_rpc_url
 ## License
 
 MIT
-
