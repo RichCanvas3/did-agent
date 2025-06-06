@@ -296,6 +296,9 @@ export class CredentialIssuerEIP1271 implements IAgentPlugin {
 
     const digest  = TypedDataEncoder.hash(compat.domain, filteredTypes, verificationMessage);
     const signature = proofValue
+
+    console.info("............... signature: ", signature )
+    console.info("............... digest: ", digest)
     
     const isValidSignatureData = encodeFunctionData({
           abi: [

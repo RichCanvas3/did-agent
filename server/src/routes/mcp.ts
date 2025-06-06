@@ -1,8 +1,10 @@
 import express, { Request, Response, RequestHandler } from 'express'
-import { agent } from '../agents/veramoAgent.js'
+import { agent, resolver } from '../agents/veramoAgent.js'
 import sanitizeHtml from 'sanitize-html';
 import dotenv from 'dotenv';
 import { ethers } from "ethers";
+import { Wallet } from 'ethers';
+import { keccak256, toBytes } from 'viem';
 
 dotenv.config();
 
@@ -10,6 +12,10 @@ import { createPublicClient, createWalletClient, http, createClient, custom, par
 import { privateKeyToAccount, PrivateKeyAccount, generatePrivateKey } from "viem/accounts";
 
 import { createPimlicoClient } from "permissionless/clients/pimlico";
+
+import { createJWT, ES256KSigner, verifyJWT  } from 'did-jwt';
+import { decodeJWT, JWTVerified } from 'did-jwt';
+
 
 
 
@@ -27,7 +33,13 @@ import {
 
 import { encodeNonce } from "permissionless/utils"
 
-
+import type {
+  DIDResolutionOptions,
+  DIDResolutionResult,
+  ParsedDID,
+  Resolvable,
+  ResolverRegistry,
+} from 'did-resolver';
 
 const mcpRoutes: express.Router = express.Router()
 const provider = new ethers.JsonRpcProvider(process.env.SEPOLIA_RPC_URL);
@@ -60,18 +72,20 @@ function parseAADid(didUrl: string): AADidParts {
   };
 }
 
-const getServerAccount = async() : Promise<any> => {
+
+
+const getServerAccount = async(key: string) : Promise<any> => {
     
   const publicClient = createPublicClient({
     chain: sepolia,
     transport: http(),
   });
 
-  if (!process.env.SERVER_PRIVATE_KEY) {
+  if (!key) {
     throw new Error('SERVER_PRIVATE_KEY environment variable is not set');
   }
 
-  const rawKey = process.env.SERVER_PRIVATE_KEY;
+  const rawKey = key;
   const serverPrivateKey = (rawKey.startsWith('0x') ? rawKey : `0x${rawKey}`) as `0x${string}`;
   
   if (!/^0x[0-9a-fA-F]{64}$/.test(serverPrivateKey)) {
@@ -82,7 +96,7 @@ const getServerAccount = async() : Promise<any> => {
   console.info("gator link server EOA: ", serverAccount)
 
 
-  const accountClient = await toMetaMaskSmartAccount({
+  const account = await toMetaMaskSmartAccount({
       client: publicClient as any,
       implementation: Implementation.Hybrid,
       deployParams: [
@@ -95,9 +109,158 @@ const getServerAccount = async() : Promise<any> => {
       signatory: { account: serverAccount as any },
   });
 
-  return accountClient
+  console.info("gator link server AA: ", account.address)
+  return account
 }
 
+
+
+export interface SmartAccountSigner {
+  signMessage: (args: { message: `0x${string}` }) => Promise<`0x${string}`>;
+}
+
+export async function createJWTEIP1271(
+  did: string,
+  smartAccountSigner: SmartAccountSigner,
+  payload: Record<string, any>
+): Promise<string> {
+
+
+  // Adapter: DID-JWT signer wrapper
+  const signer = async (data: string | Uint8Array) => {
+    //const digest = hashMessage(data as `0x${string}`);
+    const sig = await smartAccountSigner.signMessage({ message: data as `0x${string}` });
+    return sig;
+  };
+
+  // Create JWT (valid 10 minutes by default)
+  const jwt = await createJWT(
+    {
+      ...payload,
+      iat: Math.floor(Date.now() / 1000),
+      exp: Math.floor(Date.now() / 1000) + 600,
+    },
+    {
+      alg: 'ES256K',
+      issuer: did,
+      signer,
+    }
+  );
+
+  return jwt;
+}
+
+
+
+
+export interface JWTVerifyOptions {
+  resolver?: Resolvable
+}
+
+export async function verifyJWTEIP1271(jwt: string,
+  options: JWTVerifyOptions = {
+    resolver: undefined
+  }): Promise<boolean> {
+
+
+
+  // 1. Decode the JWT
+  const { payload, header, data, signature } = decodeJWT(jwt); // data is "base64url(header).base64url(payload)"
+
+
+  // verify the did
+  let smartAccountAddress
+
+  const DID_JSON = 'application/did+json'
+  if (payload.iss) {
+    const result = (await resolver.resolve(payload.iss, { accept: DID_JSON })) as DIDResolutionResult
+    console.info("verifier did resolver result: ", JSON.stringify(result))
+
+  
+    if (result.didResolutionMetadata?.error || result.didDocument == null) {
+      const { error, message } = result.didResolutionMetadata      
+      throw new Error(
+        `Unable to resolve DID document for ${payload.iss}`
+      )
+    }
+
+
+    function extractAddressFromDID(didUrl: string): `0x${string}` | null {
+      // Remove fragment if present
+      const [did] = didUrl.split('#');
+    
+      const parts = did.split(':');
+      const addressPart = parts[parts.length - 1];
+    
+      if (/^0x[a-fA-F0-9]{40}$/.test(addressPart)) {
+        return addressPart as `0x${string}`;
+      }
+    
+      return null;
+    }
+
+    const didUrl = typeof result.didDocument?.authentication?.[0] === 'string'
+      ? result.didDocument.authentication[0]
+      : result.didDocument?.authentication?.[0]?.id;
+    smartAccountAddress = extractAddressFromDID(didUrl ?? '');
+
+  }
+  
+
+
+
+  // 2. Hash the data to match EIP-1271 spec
+  const digest = hashMessage(data as `0x${string}`);
+
+  console.info("digest: ", digest)
+  console.info("signature: ", signature)
+
+  // 3. Setup viem client (Sepolia for example)
+  const isValidSignatureData = encodeFunctionData({
+    abi: [
+      {
+        name: "isValidSignature",
+        type: "function",
+        inputs: [
+          { name: "_hash", type: "bytes32" },
+          { name: "_signature", type: "bytes" },
+        ],
+        outputs: [{ type: "bytes4" }],
+        stateMutability: "view",
+      },
+    ],
+    functionName: "isValidSignature",
+    args: [digest as `0x${string}`, signature as `0x${string}`],
+  });
+
+  const publicClient = createPublicClient({
+    chain: sepolia,
+    transport: http(),
+  });
+
+
+  // 4. Call isValidSignature on the smart contract
+  try {
+    const { data: isValidSignature } = await publicClient.call({
+      account: smartAccountAddress as `0x${string}`,
+      data: isValidSignatureData,
+      to: smartAccountAddress as `0x${string}`,
+    });
+
+    console.info("isValidSignature: ", isValidSignature)
+
+    if (!isValidSignature) {
+      return false
+    }
+    else {
+      const MAGIC_VALUE = '0x1626ba7e';
+      return isValidSignature.startsWith(MAGIC_VALUE);
+    }
+  } catch (err) {
+    console.error('Signature verification error:', err);
+    return false;
+  }
+}
 
 
 async function getBalance(address: string) {
@@ -110,7 +273,7 @@ async function getBalance(address: string) {
 const handleMcpRequest: RequestHandler = async (req, res) => {
   const { type, sender, payload } = req.body
 
-  const serverAccount = await getServerAccount()
+  const serverAccount = await getServerAccount(process.env.SERVER_PRIVATE_KEY)
 
   
   const challenge = 'hello world ....' // make this random in real world implementation
@@ -159,7 +322,6 @@ const handleMcpRequest: RequestHandler = async (req, res) => {
 
 
         if (paymentDelegation) {
-
 
           console.info("make first payment to gator service provider")
 
@@ -241,6 +403,206 @@ const handleMcpRequest: RequestHandler = async (req, res) => {
       res.status(500).json({ error: 'Internal server error' })
     }
     return
+  }
+
+  if (type === 'SendWebDIDJWT') {
+    
+      // get did for website - testing with wallet.myorgwallet.io
+      if (!process.env.WEBDID_KEY) {
+          throw new Error('WEBDID_KEY environment variable is not set');
+      }
+      
+      const rawKey = process.env.WEBDID_KEY;
+      const websitePrivateKey = (rawKey.startsWith('0x') ? rawKey : `0x${rawKey}`) as `0x${string}`;
+      
+      if (!/^0x[0-9a-fA-F]{64}$/.test(websitePrivateKey)) {
+        throw new Error('Invalid private key format. Must be 32 bytes (64 hex characters) with optional 0x prefix');
+      }
+  
+      const webSiteAccount = privateKeyToAccount(websitePrivateKey);
+      console.info("website server EOA public key: ", webSiteAccount.publicKey)
+
+
+
+
+
+      const signer = ES256KSigner(Buffer.from(process.env.WEBDID_KEY, 'hex'));
+
+      const jwt = await createJWT(
+      {
+          sub: 'did:web:wallet.myorgwallet.io',
+          aud: 'did:web:richcanvas3.com',
+          exp: Math.floor(Date.now() / 1000) + 600,
+          claim: { message: 'Hello from did:web!' },
+      },
+      {
+          alg: 'ES256K',
+          issuer: 'did:web:wallet.myorgwallet.io',
+          signer,
+      }
+      );
+      
+      console.log(jwt);
+
+
+      // now verify the did
+
+      const result = await agent.resolveDid({ didUrl: 'did:web:wallet.myorgwallet.io' })
+      console.info("web did resolver result: ", result)
+
+
+      const verified = await verifyJWT(jwt, {
+        resolver: resolver,
+        audience: "did:web:richcanvas3.com", // optionally set the verifier DID
+      })
+
+      console.info("web did jwt verification result: ", verified)
+
+
+      res.json({
+        type: 'SendWebDidConfirmation',
+        services: [
+          { name: 'Gator Lawn Service', location: 'Erie', confirmation: "web did jwt sent" }
+        ],
+      })
+
+      return
+  }
+
+  if (type === 'SendEthrDIDJWT') {
+
+    console.info("........... sending ethr did jwt")
+    
+    // get did for ethr - testing with wallet.myorgwallet.io
+    if (!process.env.ETHRDID_KEY) {
+        throw new Error('ETHRDID_KEY environment variable is not set');
+    }
+    
+    const rawKey = process.env.ETHRDID_KEY;
+    const ethrPrivateKey = (rawKey.startsWith('0x') ? rawKey : `0x${rawKey}`) as `0x${string}`;
+    
+    if (!/^0x[0-9a-fA-F]{64}$/.test(ethrPrivateKey)) {
+      throw new Error('Invalid private key format. Must be 32 bytes (64 hex characters) with optional 0x prefix');
+    }
+
+    const ethrAccount = privateKeyToAccount(ethrPrivateKey);
+    console.info("ethr server EOA public key: ", ethrAccount)
+
+    const did = `did:ethr:${ethrAccount.address}`
+
+    const signer = ES256KSigner(Buffer.from(process.env.ETHRDID_KEY, 'hex'));
+
+    const jwt = await createJWT(
+    {
+        sub: did,
+        name: 'Alice',
+        iat: Math.floor(Date.now() / 1000),
+        exp: Math.floor(Date.now() / 1000) + 600, // expires in 10 minutes
+    },
+    {
+        alg: 'ES256K',
+        issuer: did,
+        signer,
+    }
+    );
+    
+    console.log(jwt);
+
+
+    // now verify the did
+
+    const result = await agent.resolveDid({ didUrl: did })
+    console.info("ethr did resolver result: ", result)
+
+
+    const verified = await verifyJWT(jwt, {
+      resolver: resolver
+    })
+
+    console.info("web did jwt verification result: ", verified)
+
+
+    res.json({
+      type: 'SendWebDidConfirmation',
+      services: [
+        { name: 'Gator Lawn Service', location: 'Erie', confirmation: "web did jwt sent" }
+      ],
+    })
+
+    return
+  }
+
+
+  if (type === 'SendAADIDJWT' && process.env.SERVER_PRIVATE_KEY) {
+
+    const owner : `0x${string}` = "0x0000000000000000000000000000000000000000"
+    const serverAccountClient = await getServerAccount(process.env.SERVER_PRIVATE_KEY)
+    //const did = `did:aa:${serverAccountClient.address}`
+    const did = 'did:aa:eip155:11155111:' + serverAccountClient.address
+
+    const jwt = await createJWTEIP1271(
+      did,
+      serverAccountClient,
+      {
+        sub: did,
+        name: 'Alice',
+      }
+    );
+
+
+
+    const verified = await verifyJWTEIP1271(
+      jwt, {
+        resolver: resolver
+      })
+
+    console.info("aa did jwt verification result: ", verified)
+
+    /*
+    const digest =  hashMessage("hello world"); // ethers.utils.hashMessage
+    const signature = await serverAccountClient.signMessage({ message:"hello world" });
+
+    const isValidSignatureData = encodeFunctionData({
+      abi: [
+        {
+          name: "isValidSignature",
+          type: "function",
+          inputs: [
+            { name: "_hash", type: "bytes32" },
+            { name: "_signature", type: "bytes" },
+          ],
+          outputs: [{ type: "bytes4" }],
+          stateMutability: "view",
+        },
+      ],
+      functionName: "isValidSignature",
+      args: [digest as `0x${string}`, signature as `0x${string}`],
+    });
+
+    const publicClient = createPublicClient({
+      chain: sepolia,
+      transport: http(),
+    });
+    const { data: isValidSignature } = await publicClient.call({
+      account: serverAccountClient as `0x${string}`,
+      data: isValidSignatureData,
+      to: serverAccountClient.address as `0x${string}`,
+    });
+
+    console.info("************* isValidSignature: ", isValidSignature)
+    */
+
+
+
+    res.json({
+      type: 'SendAADidConfirmation',
+      services: [
+        { name: 'Gator Lawn Service', location: 'Erie', confirmation: "aa did jwt sent" }
+      ],
+    })
+
+    return
+
   }
 
   res.status(400).json({ error: 'Unsupported MCP type' })

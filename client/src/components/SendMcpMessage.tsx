@@ -35,6 +35,8 @@ import {
 import { AAKmsSigner } from '@mcp/shared';
 
 
+
+
 // Add RPC URL constant
 const RPC_URL = import.meta.env.SEPOLIA_RPC_URL as string;
 
@@ -135,6 +137,12 @@ export const SendMcpMessage: React.FC = () => {
     return accountClient;
 }
 
+interface Args {
+    message: string;
+    signature: string;
+    did: string;
+  }
+
 async function getBalance(address: string) {
     const sepProv = new ethers.JsonRpcProvider(import.meta.env.VITE_SEPOLIA_RPC_URL);
     const balance = await sepProv.getBalance(address);
@@ -143,8 +151,52 @@ async function getBalance(address: string) {
     return eth;
 }
 
+const handleSendWebDIDJWT = async () => {
+    const challengeResult : any = await fetch('http://localhost:3001/mcp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+        type: 'SendWebDIDJWT',
+        payload: {
+            action: 'ServiceSubscriptionRequest'
+        },
+        }),
+    });
+    const challengeData : any = await challengeResult.json()
+    console.info("........ challengeResult: ", challengeData)
+}
 
-  const handleSend = async () => {
+const handleSendEthrDIDJWT = async () => {
+    const challengeResult : any = await fetch('http://localhost:3001/mcp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+        type: 'SendEthrDIDJWT',
+        payload: {
+            action: 'ServiceSubscriptionRequest'
+        },
+        }),
+    });
+    const challengeData : any = await challengeResult.json()
+    console.info("........ challengeResult: ", challengeData)
+}
+
+const handleSendAADIDJWT = async () => {
+    const challengeResult : any = await fetch('http://localhost:3001/mcp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+        type: 'SendAADIDJWT',
+        payload: {
+            action: 'ServiceSubscriptionRequest'
+        },
+        }),
+    });
+    const challengeData : any = await challengeResult.json()
+    console.info("........ challengeResult: ", challengeData)
+}
+
+const handleSend = async () => {
     setLoading(true);
     try {
 
@@ -211,6 +263,16 @@ async function getBalance(address: string) {
         const clientSubscriberEthrDidDoc = await agent.resolveDid({didUrl: clientSubscriberEthrDid})
         console.info("client subscriber ethr did document: ", clientSubscriberEthrDidDoc)
 
+        const message = "hello world"; // the signed message
+        const clientSubScriberEOAEthrDid = "did:ethr:" + loginResp.owner.toLowerCase()
+
+
+        const signature2 = await loginResp.signatory.walletClient.signMessage({
+            message: message,
+          });
+
+        const recoveredAddress = ethers.verifyMessage(message, signature2);
+        console.info(" *********** recoveredAddress: ", recoveredAddress)
 
         const eoaEthrDid = "did:ethr:" + loginResp.owner.toLowerCase()
         const eoaEthrDidDoc = await agent.resolveDid({didUrl: eoaEthrDid})
@@ -224,6 +286,10 @@ async function getBalance(address: string) {
         console.info("gator client aa ethr did document: ", aaEthrDidDoc)
 
 
+
+
+
+        // get balance for client subscriber smart account
         const aaBalance = await getBalance(clientSubscriberSmartAddress)
         console.info("client subscriber smart account balance: ", aaBalance)
 
@@ -576,7 +642,15 @@ async function getBalance(address: string) {
       <button onClick={handleSend} disabled={loading}>
         {loading ? 'Sending...' : 'Send MCP Lawn Service Request and Payment'}
       </button>
-
+      <button onClick={handleSendWebDIDJWT} >
+        {loading ? 'Sending...' : 'Send Web DID JWT'}
+      </button>
+      <button onClick={handleSendEthrDIDJWT} >
+        {loading ? 'Sending...' : 'Send Ethr DID JWT'}
+      </button>
+      <button onClick={handleSendAADIDJWT} >
+        {loading ? 'Sending...' : 'Send AA DID JWT'}
+      </button>
       {response && (
         <div style={{ marginTop: 20 }}>
           <h3>Response:</h3>
