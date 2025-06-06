@@ -5,6 +5,30 @@ A decentralized identity and verifiable credentials provider that supports EIP-1
 Account Abstraction DID resolver that produces DID Document
 Account Abstraction DID relationships/delegations published via on-chain DID attestations and Metamask Delegation
 
+## Grant's Setup
+
+```
+cd mcp-aa-did
+touch client/.env
+touch server/.env
+
+[Add Environment Variables]
+
+git switch caveats-instead-of-permissions
+
+pnpm install
+pnpm i --save-dev @types/debug -w
+pnpm run build
+
+open http:localhost:5173
+cd client
+pnpm run dev
+
+open http:localhost:3001
+cd server
+npx tsx src/index.ts
+```
+
 ## Features
 
 - Support for `did:aa` (Account Abstraction) DID method
@@ -74,4 +98,3 @@ MAINNET_RPC_URL=your_mainnet_rpc_url
 ## License
 
 MIT
-
