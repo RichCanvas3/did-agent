@@ -6,21 +6,10 @@ import { type TypedDataDomain, type TypedDataField } from 'ethers'
 import { ethers } from "ethers";
 import { sepolia } from "viem/chains";
 import { createPublicClient, createWalletClient, http, createClient, custom, parseEther, zeroAddress, toHex, type Address, encodeFunctionData, hashMessage } from "viem";
-import {  agent } from '../agents/veramoAgent';
-
-import {
-    Implementation,
-    toMetaMaskSmartAccount,
-  } from "@metamask/delegation-toolkit";
-
-import {
-    createBundlerClient,
-  } from "viem/account-abstraction";
-
-import { erc7715ProviderActions } from "@metamask/delegation-toolkit/experimental";
-
+import { agent } from '../agents/veramoAgent';
+import { Implementation, toMetaMaskSmartAccount, createCaveatBuilder, createDelegation } from "@metamask/delegation-toolkit";
 import { createPimlicoClient } from "permissionless/clients/pimlico";
-
+import { createBundlerClient } from "viem/account-abstraction";
 import { AAKmsSigner } from '@mcp/shared';
 import '../custom-styles.css';
 
@@ -81,17 +70,16 @@ export const SendMcpMessage: React.FC = () => {
     // Money is still taken out of the metamask smart wallet defined by address.
 
     const accountClient = await toMetaMaskSmartAccount({
-        address,
-        client: publicClient as any,
-        implementation: Implementation.Hybrid,
-        deployParams: [
-            owner,
-          [] as string[],
-          [] as bigint[],
-          [] as bigint[]
-        ] as [owner: `0x${string}`, keyIds: string[], xValues: bigint[], yValues: bigint[]],
-        deploySalt: "0x0000000000000000000000000000000000000000000000000000000000000001",
-        signatory: signatory as any,
+      client: publicClient as any,
+      implementation: Implementation.Hybrid,
+      deployParams: [
+          owner,
+        [] as string[],
+        [] as bigint[],
+        [] as bigint[]
+      ] as [owner: `0x${string}`, keyIds: string[], xValues: bigint[], yValues: bigint[]],
+      deploySalt: "0x0000000000000000000000000000000000000000000000000000000000000001",
+      signatory: signatory as any,
     });
 
     // After creating the account client, we can check if it's deployed
@@ -267,39 +255,49 @@ const handleSend = async () => {
         console.info("************* isDeployed: ", isDeployed)
 
         if (isDeployed == false) {
+          const pimlicoClient = createPimlicoClient({
+            transport: http(import.meta.env.VITE_BUNDLER_URL),
+            chain: sepolia
+          });
 
+          const bundlerClient = createBundlerClient({
+            transport: http(import.meta.env.VITE_BUNDLER_URL) as any,
+            chain: sepolia as any,
+            paymaster: true,
+          }) as any;
 
-            const pimlicoClient = createPimlicoClient({
-                transport: http(import.meta.env.VITE_BUNDLER_URL),
-                chain: sepolia
+          const { fast: fee } = await pimlicoClient.getUserOperationGasPrice();
+          const userOperationHash = await bundlerClient!.sendUserOperation({
+            account: clientSubscriptionAccountClient,
+            calls: [
+                {
+                to: zeroAddress,
+                },
+            ],
+            ...fee,
             });
 
-            const bundlerClient = createBundlerClient({
-                transport: http(import.meta.env.VITE_BUNDLER_URL) as any,
-                chain: sepolia as any,
-                paymaster: true,
-            }) as any;
-
-
-            const { fast: fee } = await pimlicoClient.getUserOperationGasPrice();
-            const userOperationHash = await bundlerClient!.sendUserOperation({
-                account: clientSubscriptionAccountClient,
-                calls: [
-                    {
-                    to: zeroAddress,
-                    },
-                ],
-                ...fee,
-                });
-
-                console.info("send user operation - done")
-                const { receipt } = await bundlerClient!.waitForUserOperationReceipt({
-                hash: userOperationHash,
-            });
-           
-
+            console.info("send user operation - done")
+            const { receipt } = await bundlerClient!.waitForUserOperationReceipt({
+            hash: userOperationHash,
+          });
         }
 
+        // create delegation to server smart account providing service these caveats
+        let paymentDel = createDelegation({
+          from: clientSubscriptionAccountClient.address,
+          to: smartServiceAccountAddress,
+          caveats: caveats }
+        );
+
+        const signature = await clientSubscriptionAccountClient.signDelegation({
+          delegation: paymentDel,
+        });
+
+        paymentDel = {
+          ...paymentDel,
+          signature,
+        }
 
         // get agent available methods, this is a capability demonstration
         // const availableMethods = await agent.availableMethods()
@@ -565,19 +563,13 @@ const handleSend = async () => {
 
   return (
     <div>
-      <h2> Gator Lawn Service </h2>
+      <br></br>
+      <br></br>
+      <h2> MCP Agent-to-Agent Interaction </h2>
+      <div>
 
       <button className='service-button' onClick={handleSend} disabled={loading}>
-        {loading ? 'Sending...' : 'Send MCP Lawn Service Request and Payment'}
-      </button>
-      <button onClick={handleSendWebDIDJWT} >
-        {loading ? 'Sending...' : 'Send Web DID JWT'}
-      </button>
-      <button onClick={handleSendEthrDIDJWT} >
-        {loading ? 'Sending...' : 'Send Ethr DID JWT'}
-      </button>
-      <button onClick={handleSendAADIDJWT} >
-        {loading ? 'Sending...' : 'Send AA DID JWT'}
+        {loading ? 'Sending...' : 'MCP agent-to-agent request.  VP holding VC for DID:aa:eip155:...'}
       </button>
       {response && (
         <div style={{ marginTop: 20, backgroundColor: 'black', color: 'white', padding: '2px 20px', borderRadius: '10px' }}>
@@ -585,6 +577,31 @@ const handleSend = async () => {
           <pre>{JSON.stringify(response, null, 2)}</pre>
         </div>
       )}
+      </div>
+      <br></br>
+      <div>
+        <h2>Web DID, Ethr DID, and AA DID Signature verification</h2>
+      </div>
+      <br></br>
+      <div>
+      <button onClick={handleSendWebDIDJWT} >
+        {loading ? 'Sending...' : 'Send Web DID JWT'}
+      </button>
+      </div>
+      <br></br>
+      <div>
+      <button onClick={handleSendEthrDIDJWT} >
+        {loading ? 'Sending...' : 'Send Ethr DID JWT'}
+      </button>
+      </div>
+      <br></br>
+      <div>
+      <button onClick={handleSendAADIDJWT} >
+        {loading ? 'Sending...' : 'Send AA DID JWT'}
+      </button>
+      </div>
+      <br></br>
+      
     </div>
   );
 };

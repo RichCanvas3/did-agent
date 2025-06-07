@@ -3,69 +3,83 @@ import '../custom-styles.css'
 
 const RootPage: React.FC = () => {
   return (
-    <>
-      <h2> Introducing the Gator Link Tech Framework </h2>
+    <div className="root-page">
+      <div className="content">
+        <h1>Account Abstraction DID (did:aa:eip155:...)</h1>
 
-      <h3> Revolutionizing how local services are booked, paid, and shared. </h3>
+        <h2>Core Capabilities</h2>
+        <ul>
+          <li>Agent Interoperability: Subject and Issuer identification for VC and VP communication between agents (via DIDComm and MCP).</li>
+          <li>Simplified UI: Supports gasless (Paymaster), batching, and sponsorship for on-chain invocations.</li>
+          <li>Delegation & Role Access: Managed via Account Abstraction delegation logic.</li>
+          <li>Key Rotation: DID is not tied to a single EOA; supports updates without re-publication.</li>
+          <li>Compatibility with ZK circuits and MPC wallets.</li>
+          <li>Enhanced Security: Multi-factor authentication and social recovery options.</li>
+          <li>Cost Efficiency: Batch transactions and gas optimization through Account Abstraction.</li>
+        </ul>
 
-      <p> The Gator Link Tech Framework is a cutting-edge infrastructure that powers seamless transactions and smart contract automation between customers, service providers, and third-party marketplaces. Imagine it as the blockchain-native backbone for the "Amazon of House Services." </p>
 
-      <div style={{display: 'flex'}}>
-        <ShoppingCartIcon width='30px' fill='teal' style={{marginRight: '10px'}}/>
-        <h3> For Marketplaces </h3>
+        <h2>When to Use Account Abstraction-based DIDs</h2>
+        <ul>
+          <li>You need organization wallets or multi-sig control</li>
+          <li>You want social recovery or modular signing logic</li>
+          <li>You want gasless onboarding or sponsored credentials</li>
+          <li>You're integrating with ERC-4337, EIP-1271, or ZK-based workflows</li>
+          <li>You need flexible key management for large organizations</li>
+          <li>You want to implement progressive security measures</li>
+        </ul>
+
+        <h2>Signature and Verification Mechanics</h2>
+        <ul>
+          <li>Delegator signs EIP-712 structured data on behalf of a smart account using their EOA</li>
+          <li>Signature is verified on-chain using ERC-1271's <code>isValidSignature</code></li>
+          <li>Signed messages, VCs, or VPs can be transferred across agents and validated on-chain</li>
+          <li>Subject/Issuer DID is tied to an Account Abstraction address, not a static EOA</li>
+          <li>Support for multiple signature schemes and custom validation logic</li>
+        </ul>
+
+
+
+
+        <h2>Why Account Abstraction DIDs Are Still Emerging</h2>
+        <p>
+          Traditional DID methods like <code>did:ethr</code>, <code>did:web</code>, <code>did:key</code>, and <code>did:peer</code> assume an EOA with a private key.
+        </p>
+        <p>Account Abstraction (via ERC-4337 and smart wallets) breaks this assumption by enabling smart contracts to act as fully sovereign identities—without needing private keys.</p>
+        <p>Most current DID libraries and resolvers expect direct signing from a keypair, so smart contract wallets don't yet integrate cleanly.</p>
+
+
+        <h2>MyOrgWallet Integration</h2>
+        <ul>
+          <li>Ties attestations to both Organization and Individual Account Abstractions</li>
+          <li>Manages Account Abstraction DIDs across orgs and individuals</li>
+          <li>Publishes discoverable DID Documents for AA wallets</li>
+          <li>DID Documents include delegation relationships and organization services</li>
+          <li>Automated compliance and audit trail features</li>
+          <li>Integration with popular identity providers and SSO solutions</li>
+        </ul>
+
+        <h2>Project Shared Package</h2>
+        <p>Extend Veramo's capabilities to support:</p>
+        <ul>
+          <li>Account Abstraction DID Methods (e.g. <code>did:aa:eip155:...</code>)</li>
+          <li>ERC-4337 signing and delegation flows</li>
+          <li>ERC-1271-compatible VC and VP issuance/verification</li>
+          <li>Integration with popular DID resolution networks</li>
+          <li>Support for emerging Account Abstraction standards</li>
+          <li>Cross-chain DID resolution and verification</li>
+        </ul>
+
+        <h2>Resources</h2>
+        <ul>
+          <li>ERC-4337 Specification</li>
+          <li>Account Abstraction Implementation Guide</li>
+          <li>DID Core Specification</li>
+          <li>Veramo Documentation</li>
+          <li>Security Best Practices</li>
+        </ul>
       </div>
-
-      <p> Marketplaces like third-party <b>House Services Sites</b> (e.g., home maintenance platforms) integrate Gator Link to: </p>
-
-      <ul>
-        <li> Onboard and authenticate customers via EOA wallets. </li>
-        <li> Offer service catalogs (e.g., house cleaning, lawn care, handyman). </li>
-        <li> Automatically receive a <b>commission</b> (% incentive) from every completed sale via on-chain incentive routing. </li>
-        <li> Get <b>proof of sale</b> and trust via <b>Verifiable Credentials</b> and Delegated Payments. </li>
-      </ul>
-
-      <div style={{display: 'flex'}}>
-        <BriefcaseIcon width='30px' fill='teal' style={{marginRight: '10px'}}/>
-        <h3> For Service Providers </h3>
-      </div>
-
-      <p> Local service providers like cleaning or lawn care companies plug in their Service Provider Agent and receive: </p>
-
-      <ul>
-        <li> Secure, <b>recurring payments</b> (USDC) through smart accounts (AA accounts). </li>
-        <li> Immediate fund access to their <b>Mastercard (business)</b>. </li>
-        <li> Full control over pricing, product catalogs, and messaging. </li>
-        <li> Contracts issued as <b>DIDs & Verifiable Presentations</b>, cryptographically signed. </li>
-      </ul>
-
-      <div style={{display: 'flex'}}>
-        <UserCircleIcon width='30px' fill='teal' style={{marginRight: '10px'}}/>
-        <h3> For Customers </h3>
-      </div>
-
-      <p> End users enjoy: </p>
-
-      <ul>
-        <li> Booking services with just a few taps via familiar platforms. </li>
-        <li> Making payments with <b>Mastercard or crypto wallets</b>, funneled through secure smart accounts. </li>
-        <li> Transparent payment delegation to verified service agents. </li>
-        <li> Instant refunds via direct transfers if needed. </li>
-      </ul>
-
-      <div style={{display: 'flex'}}>
-        <StarIcon width='30px' fill='teal' style={{marginRight: '10px'}}/>
-        <h3> Key Tech Highlights </h3>
-      </div>
-
-      <ul>
-        <li> <b>Account Abstraction (AA)</b> powers programmable USDC payments. </li>
-        <li> <b>Delegated Payment Flows</b> handled by Recurring Payment Agents. </li>
-        <li> <b>DID & Verifiable Credentials (VP)</b> secure contracts and automate trust. </li>
-        <li> <b>Revenue Sharing Smart Logic</b> gives third parties a real-time share of the sale. </li>
-      </ul>
-
-      <p> <b>Gator Link</b> isn't just tech. It's the invisible trust engine behind service economies of the future - on-chain, programmable, and decentralized. Whether you're a platform, provider, or partner, Gator Link makes every link in the value chain smarter. </p>
-    </>
+    </div>
   );
 };
 

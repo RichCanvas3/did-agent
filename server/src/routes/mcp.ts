@@ -93,7 +93,7 @@ const getServerAccount = async(key: string) : Promise<any> => {
   }
 
   const serverAccount = privateKeyToAccount(serverPrivateKey);
-  console.info("gator link server EOA: ", serverAccount)
+  console.info("server EOA: ", serverAccount)
 
 
   const account = await toMetaMaskSmartAccount({
@@ -109,7 +109,7 @@ const getServerAccount = async(key: string) : Promise<any> => {
       signatory: { account: serverAccount as any },
   });
 
-  console.info("gator link server AA: ", account.address)
+  console.info("server AA: ", account.address)
   return account
 }
 
