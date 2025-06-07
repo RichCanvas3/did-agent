@@ -1,5 +1,6 @@
 # Account Abstraction DID (did:aa:eip155:...).  Verifiable Credentials, Verifiable Presentation  leveraging EIP-1271
 
+![Account Abstraction DID Demo](./did-aa-demo.jpg)
 
 # Account Abstraction DID
 
@@ -24,6 +25,8 @@
   Can be plugged into ZK circuits and Multi-Party Computation (MPC) wallets.
 
 ---
+
+![Account Abstraction DID Demo](./did-aa-demo.jpg)
 
 ## When to Use Account Abstraction-based DIDs
 
