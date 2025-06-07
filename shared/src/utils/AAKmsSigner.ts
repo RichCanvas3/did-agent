@@ -92,8 +92,4 @@ export class AAKmsSigner extends AbstractSigner {
     return new AAKmsSigner(this.controllerKey, this.context, provider) as unknown as Signer
   }
 }
-/*
-function isAddressable(address: any): address is Addressable {
-  return (address as Addressable).getAddress !== undefined;
-}
-  */
+

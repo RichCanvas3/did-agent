@@ -51,7 +51,7 @@ export function getResolver(): ResolverRegistry {
       options: DIDResolutionOptions
     ): Promise<DIDResolutionResult> => {
 
-     console.info(`********** Resolving DID: ${did}`);
+      console.info(">>>>>>>> inside aa resolver: did: ", did)
 
       const contentType = options.accept || DID_JSON;
       const response: DIDResolutionResult = {
@@ -74,6 +74,8 @@ export function getResolver(): ResolverRegistry {
         response.didResolutionMetadata.error = 'invalidDid';
         response.didResolutionMetadata.message = (e as Error).message;
       }
+
+      console.info(">>>>>>>> inside aa resolver: response: ", JSON.stringify(response))
       return response;
     },
   };

@@ -1,8 +1,9 @@
 import { createAgent, type TAgent} from '@veramo/core'
 import { Resolver } from 'did-resolver';
-
+import { getResolver as ethrDidResolver } from 'ethr-did-resolver'
 
 import { DIDResolverPlugin } from '@veramo/did-resolver';
+import { sepolia } from "viem/chains";
 
 import {
   KeyManager,
@@ -34,6 +35,8 @@ const didProviders: Record<string, AADidProvider> = {
 }
 const aaKMS = new AAKeyManagementSystem(didProviders)
 
+console.info("SEPOLIA_RPC_URL: ", import.meta.env.VITE_SEPOLIA_RPC_URL )
+console.info("MAINNET_RPC_URL: ", import.meta.env.VITE_MAINNET_RPC_URL)
 
 export type Agent = TAgent<ICredentialVerifier & IDIDManager & IKeyManager & IResolver>
 export const agent: Agent = createAgent({
@@ -53,6 +56,18 @@ export const agent: Agent = createAgent({
     new DIDResolverPlugin({
       resolver: new Resolver({
         ...aaDidResolver(),
+        ...ethrDidResolver({
+          networks: [
+            {
+              name: 'mainnet',
+              rpcUrl: import.meta.env.VITE_MAINNET_RPC_URL as string,
+            },
+            {
+              name: 'sepolia',
+              rpcUrl: import.meta.env.VITE_SEPOLIA_RPC_URL as string,
+            },
+          ],
+        }),
       }),
     }),
   ],

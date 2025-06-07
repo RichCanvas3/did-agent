@@ -1,137 +1,85 @@
 // src/components/SendMcpMessage.tsx
 
-
 import React from 'react';
-import {
-    createContext,
-    useCallback,
-    useContext,
-    useEffect,
-    useState,
-  } from "react";
-
-import {
-  type TypedDataDomain,
-  type TypedDataField,
-} from 'ethers'
-
-import { ethers, } from "ethers";
-
+import { createContext, useCallback, useContext, useEffect, useState } from "react";
+import { type TypedDataDomain, type TypedDataField } from 'ethers'
+import { ethers } from "ethers";
 import { sepolia } from "viem/chains";
 import { createPublicClient, createWalletClient, http, createClient, custom, parseEther, zeroAddress, toHex, type Address, encodeFunctionData, hashMessage } from "viem";
-import {  agent } from '../agents/veramoAgent';
-
-import {
-    Implementation,
-    toMetaMaskSmartAccount,
-  } from "@metamask/delegation-toolkit";
-
-
-import { erc7715ProviderActions } from "@metamask/delegation-toolkit/experimental";
-
-
+import { agent } from '../agents/veramoAgent';
+import { Implementation, toMetaMaskSmartAccount, createCaveatBuilder, createDelegation } from "@metamask/delegation-toolkit";
+import { createPimlicoClient } from "permissionless/clients/pimlico";
+import { createBundlerClient } from "viem/account-abstraction";
 import { AAKmsSigner } from '@mcp/shared';
+import '../custom-styles.css';
 
-import { usePermissions } from "../providers/PermissionProvider";
 
-import { GrantPermissionsReturnType } from "@metamask/delegation-toolkit/experimental";
-export type Permission = NonNullable<GrantPermissionsReturnType>[number];
-interface PermissionContextType {
-    permission: Permission | null;
-    smartAccount: Address | null;
-    savePermission: (permission: Permission) => void;
-    fetchPermission: () => Permission | null;
-    removePermission: () => void;
-  }
-export const PermissionContext = createContext<PermissionContextType>({
-    permission: null,
-    smartAccount: null,
-    savePermission: () => {},
-    fetchPermission: () => null,
-    removePermission: () => {},
-  });
+
 
 // Add RPC URL constant
-const RPC_URL = sepolia.rpcUrls.default.http[0];
+const RPC_URL = import.meta.env.SEPOLIA_RPC_URL as string;
 
 // Add Account Abstraction ABI
-const accountAbstractionAbi = [
-    "function owner() view returns (address)"
-];
+const accountAbstractionAbi = ["function owner() view returns (address)"];
 
 export const SendMcpMessage: React.FC = () => {
-
-    const { savePermission } = usePermissions();
-
   const [response, setResponse] = useState<any>(null);
   const [loading, setLoading] = useState(false);
-
   const chain = sepolia;
-
   const provider = (window as any).ethereum;
   const login = async () => {
-
     const selectedNetwork = await provider.request({ method: "eth_chainId" });
+
     if (parseInt(selectedNetwork) !== chain.id) {
-        await provider.request({
-        method: "wallet_switchEthereumChain",
-        params: [
-            {
-            chainId: toHex(chain.id),
-            },
-        ],
-        });
+      await provider.request({
+      method: "wallet_switchEthereumChain",
+      params: [
+          {
+          chainId: toHex(chain.id),
+          },
+      ],
+      });
     }
 
     const [owner] = (await provider.request({
-        method: "eth_requestAccounts",
+      method: "eth_requestAccounts",
     })) as Address[];
 
-
     const walletClient = createWalletClient({
-        chain: sepolia,
-        transport: custom(provider),
-        account: owner as `0x${string}`
+      chain: sepolia,
+      transport: custom(provider),
+      account: owner as `0x${string}`
     });
-
-    const walletClientWithDelegation = walletClient.extend((client) => ({
-        ...erc7715ProviderActions()(client as any),
-        signTypedData: walletClient.signTypedData
-    })) as any;
 
     console.info("........> wallet address: ", owner)
 
-
     return {
-        owner,
-        signatory: { walletClient: walletClientWithDelegation },
+      owner,
+      signatory: { walletClient: walletClient },
     };
   };
 
-
   const getClientSubscriberSmartAccount = async(
-    owner: any, 
-    signatory: any, 
-    publicClient: any,
-    address: `0x${string}`
+    owner: any,
+    signatory: any,
+    publicClient: any
   ) : Promise<any> => {
-    
+
     // Issue with metamask smart contract created.  I don't have an owner address and cannot get signature using ERC-1271
     // For now we return a default account for DID, VC and VP
     // Money is still taken out of the metamask smart wallet defined by address.
-    
+
     const accountClient = await toMetaMaskSmartAccount({
-        //address,
-        client: publicClient as any,
-        implementation: Implementation.Hybrid,
-        deployParams: [
-            owner,
-          [] as string[],
-          [] as bigint[],
-          [] as bigint[]
-        ] as [owner: `0x${string}`, keyIds: string[], xValues: bigint[], yValues: bigint[]],
-        deploySalt: "0x0000000000000000000000000000000000000000000000000000000000000001",
-        signatory: signatory as any,
+      client: publicClient as any,
+      implementation: Implementation.Hybrid,
+      deployParams: [
+          owner,
+        [] as string[],
+        [] as bigint[],
+        [] as bigint[]
+      ] as [owner: `0x${string}`, keyIds: string[], xValues: bigint[], yValues: bigint[]],
+      deploySalt: "0x0000000000000000000000000000000000000000000000000000000000000001",
+      signatory: signatory as any,
     });
 
     // After creating the account client, we can check if it's deployed
@@ -139,47 +87,101 @@ export const SendMcpMessage: React.FC = () => {
     console.log("Smart account deployment status:", isDeployed);
 
     if (isDeployed) {
-        try {
-            const provider = new ethers.JsonRpcProvider(RPC_URL);
-            const contract = new ethers.Contract(accountClient.address, accountAbstractionAbi, provider);
-            const contractOwner = await contract.owner();
-            console.log("Smart account owner:", contractOwner);
-        } catch (error) {
-            console.warn("Could not get owner of deployed account:", error);
-        }
-    } else {
-        console.log("Smart account not yet deployed");
-    }
+      /*
+      try {
+          const provider = new ethers.JsonRpcProvider(RPC_URL);
+          const contract = new ethers.Contract(accountClient.address, accountAbstractionAbi, provider);
+          const contractOwner = await contract.owner();
+          console.log("Smart account owner:", contractOwner);
+      } catch (error) {
+          console.warn("Could not get owner of deployed account:", error);
+      }
+      */
+  } else {
+      console.log("Smart account not yet deployed");
+  }
 
-    return accountClient;
+  return accountClient;
 }
 
+interface Args {
+    message: string;
+    signature: string;
+    did: string;
+  }
 
+async function getBalance(address: string) {
+  const sepProv = new ethers.JsonRpcProvider(import.meta.env.VITE_SEPOLIA_RPC_URL);
+  const balance = await sepProv.getBalance(address);
+  const eth = ethers.formatEther(balance);
+  console.log(`Balance: ${eth} ETH for address: ${address}`);
+  return eth;
+}
 
+const handleSendWebDIDJWT = async () => {
+    const challengeResult : any = await fetch('http://localhost:3001/mcp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+        type: 'SendWebDIDJWT',
+        payload: {
+            action: 'ServiceSubscriptionRequest'
+        },
+        }),
+    });
+    const challengeData : any = await challengeResult.json()
+    console.info("........ challengeResult: ", challengeData)
+}
 
-  const handleSend = async () => {
+const handleSendEthrDIDJWT = async () => {
+    const challengeResult : any = await fetch('http://localhost:3001/mcp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+        type: 'SendEthrDIDJWT',
+        payload: {
+            action: 'ServiceSubscriptionRequest'
+        },
+        }),
+    });
+    const challengeData : any = await challengeResult.json()
+    console.info("........ challengeResult: ", challengeData)
+}
+
+const handleSendAADIDJWT = async () => {
+    const challengeResult : any = await fetch('http://localhost:3001/mcp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+        type: 'SendAADIDJWT',
+        payload: {
+            action: 'ServiceSubscriptionRequest'
+        },
+        }),
+    });
+    const challengeData : any = await challengeResult.json()
+    console.info("........ challengeResult: ", challengeData)
+}
+
+const handleSend = async () => {
     setLoading(true);
+
     try {
-
-
-          
-
         // get challenge from organization providing service,  along with challenge phrase
         const challengeResult : any = await fetch('http://localhost:3001/mcp', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-            type: 'PresentationRequest',
-            //from: clientSubscriberDid,
-            payload: {
-                action: 'ServiceSubscriptionRequest'
-            },
-            }),
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+          type: 'PresentationRequest',
+          //from: clientSubscriberDid,
+          payload: {
+              action: 'ServiceSubscriptionRequest'
+          },
+          }),
         });
+
         const challengeData : any = await challengeResult.json()
         console.info("........ challengeResult: ", challengeData)
-
-                
 
         const loginResp = await login()
         const publicClient = createPublicClient({
@@ -187,145 +189,137 @@ export const SendMcpMessage: React.FC = () => {
           transport: http(),
         });
 
-
-
-
-        // generate payment permission for service account
+        // generate payment delegation for service account
         const smartServiceAccountAddress = challengeData.address
 
-        const currentTime = Math.floor(Date.now() / 1000);
-        const oneDayInSeconds = 24 * 60 * 60;
-        const expiry = currentTime + oneDayInSeconds;
-
-        console.info("granting permissions for service payment: ", smartServiceAccountAddress)
-        const grantedPermissions = await loginResp.signatory.walletClient.grantPermissions([{
-            chainId: chain.id,
-            expiry,
-            signer: {
-                type: "account",
-                data: {
-                address: smartServiceAccountAddress,
-                },
-            },
-            permission: {
-                type: "native-token-stream",
-                data: {
-                    initialAmount: BigInt(1e15), 
-                    amountPerSecond: BigInt(1e15), 
-                    maxAmount: parseEther("0.1"),
-                    startTime: currentTime,
-                    justification: "Payment for a month long service subscription",
-                },
-            },
-        }]);
-
-
-        // permissions in EOA Wallet and not smart account
-        const permission = grantedPermissions[0]
-        savePermission(permission)
-
-        
-        const { accountMeta, context, signerMeta, address } = permission;
-
-        //console.log('context in RedeemDelegation.tsx:', context);
-        //console.log('accountMeta in RedeemDelegation.tsx:', accountMeta);
-        //console.log('signerMeta in RedeemDelegation.tsx:', signerMeta);
-  
-        if (!signerMeta) {
-          console.error("No signer meta found");
-          setLoading(false);
-          return;
-        }
-
-
-        // subscription client delegator:  where funds are coming out of to pay for subscription
-        //const clientSubscriberSmartAddress = "0xaC70Cb86615e09eFBEcB9bA29F5B35382A3e6cEc"
-
-
-        const clientSubscriptionAccountClient = await getClientSubscriberSmartAccount(loginResp.owner, loginResp.signatory, publicClient, address)
+        const clientSubscriptionAccountClient = await getClientSubscriberSmartAccount(loginResp.owner, loginResp.signatory, publicClient)
         console.info("client smart account address: ",  clientSubscriptionAccountClient.address)
+
+        const environment = clientSubscriptionAccountClient.environment;
+        const caveatBuilder = createCaveatBuilder(environment);
+
+        // get list of careat types: https://docs.gator.metamask.io/how-to/create-delegation/restrict-delegation
+        caveatBuilder.addCaveat("nativeTokenPeriodTransfer",
+            10n, // 1 ETH in wei
+            86400, // 1 day in seconds
+            1743763600, // April 4th, 2025, at 00:00:00 UTC
+        )
+
+        const caveats = caveatBuilder.build()
 
         // Ensure account is properly initialized
         if (!clientSubscriptionAccountClient || !clientSubscriptionAccountClient.address) {
-            throw new Error("Failed to initialize account client");
+          throw new Error("Failed to initialize account client");
         }
 
         const clientSubscriberSmartAddress = clientSubscriptionAccountClient.address.toLowerCase()
         const clientSubscriberDid = "did:aa:eip155:" + chain.id + ":" + clientSubscriberSmartAddress.toLowerCase()
-        
         console.info("client subscriber smart account address : ", clientSubscriberSmartAddress)
         console.info("client subscriber did: ", clientSubscriberDid)
 
+        // get did document for client subscriber
+        const clientSubscriberEthrDid = "did:ethr:" + clientSubscriberSmartAddress.toLowerCase()
+        const clientSubscriberEthrDidDoc = await agent.resolveDid({didUrl: clientSubscriberEthrDid})
+        console.info("client subscriber ethr did document: ", clientSubscriberEthrDidDoc)
+
+        const message = "hello world"; // the signed message
+        const clientSubScriberEOAEthrDid = "did:ethr:" + loginResp.owner.toLowerCase()
+
+
+        const signature2 = await loginResp.signatory.walletClient.signMessage({
+            message: message,
+          });
+
+        const recoveredAddress = ethers.verifyMessage(message, signature2);
+        console.info(" *********** recoveredAddress: ", recoveredAddress)
+
+        const eoaEthrDid = "did:ethr:" + loginResp.owner.toLowerCase()
+        const eoaEthrDidDoc = await agent.resolveDid({didUrl: eoaEthrDid})
+        console.info("gator client eoa ethr did document: ", eoaEthrDidDoc)
+
+        const eoaBalance = await getBalance(loginResp.owner.toLowerCase())
+        console.info("client subscriber eoa balance: ", eoaBalance)
+
+        const aaEthrDid = "did:ethr:" + clientSubscriberSmartAddress.toLowerCase()
+        const aaEthrDidDoc = await agent.resolveDid({didUrl: aaEthrDid})
+        console.info("gator client aa ethr did document: ", aaEthrDidDoc)
+
+
+
+
+        // get balance for client subscriber smart account
+        const aaBalance = await getBalance(clientSubscriberSmartAddress)
+        console.info("client subscriber smart account balance: ", aaBalance)
 
         const isDeployed = await clientSubscriptionAccountClient?.isDeployed()
         console.info("************* isDeployed: ", isDeployed)
+
         if (isDeployed == false) {
+          const pimlicoClient = createPimlicoClient({
+            transport: http(import.meta.env.VITE_BUNDLER_URL),
+            chain: sepolia
+          });
 
-            /*
+          const bundlerClient = createBundlerClient({
+            transport: http(import.meta.env.VITE_BUNDLER_URL) as any,
+            chain: sepolia as any,
+            paymaster: true,
+          }) as any;
 
-            const pimlicoClient = createPimlicoClient({
-                transport: http(BUNDLER_URL),
-                chain: sepolia
+          const { fast: fee } = await pimlicoClient.getUserOperationGasPrice();
+          const userOperationHash = await bundlerClient!.sendUserOperation({
+            account: clientSubscriptionAccountClient,
+            calls: [
+                {
+                to: zeroAddress,
+                },
+            ],
+            ...fee,
             });
 
-            const bundlerClient = createBundlerClient({
-                transport: http(BUNDLER_URL) as any,
-                chain: sepolia as any,
-                paymaster: true,
-            }).extend(erc7710BundlerActions()) as any;
-
-
-            const { fast: fee } = await pimlicoClient.getUserOperationGasPrice();
-            const userOperationHash = await bundlerClient!.sendUserOperation({
-                account: orgAccountClient,
-                calls: [
-                    {
-                    to: zeroAddress,
-                    },
-                ],
-                paymaster: paymasterClient,
-                ...fee,
-                });
-
-                console.info("send user operation - done")
-                const { receipt } = await bundlerClient!.waitForUserOperationReceipt({
-                hash: userOperationHash,
-            });
-            */
-
+            console.info("send user operation - done")
+            const { receipt } = await bundlerClient!.waitForUserOperationReceipt({
+            hash: userOperationHash,
+          });
         }
 
+        // create delegation to server smart account providing service these caveats
+        let paymentDel = createDelegation({
+          from: clientSubscriptionAccountClient.address,
+          to: smartServiceAccountAddress,
+          caveats: caveats }
+        );
+
+        const signature = await clientSubscriptionAccountClient.signDelegation({
+          delegation: paymentDel,
+        });
+
+        paymentDel = {
+          ...paymentDel,
+          signature,
+        }
 
         // get agent available methods, this is a capability demonstration
         // const availableMethods = await agent.availableMethods()
 
         // add did and key to our agent
         await agent.didManagerImport({
-            did: clientSubscriberDid, // or did:aa if you're using a custom method
-            provider: 'did:aa:client',
-            alias: 'subscriber-smart-account',
-            keys:[]
+          did: clientSubscriberDid, // or did:aa if you're using a custom method
+          provider: 'did:aa:client',
+          alias: 'subscriber-smart-account',
+          keys:[]
         })
 
-
         await agent.keyManagerImport({
-            kms: 'aa',
-            kid: 'aa-' + clientSubscriberSmartAddress,
-            type: 'Secp256k1',
-            publicKeyHex: '0x', // replace with actual public key 
-            privateKeyHex: '0x' // replace with actual private key if available
+          kms: 'aa',
+          kid: 'aa-' + clientSubscriberSmartAddress,
+          type: 'Secp256k1',
+          publicKeyHex: '0x', // replace with actual public key
+          privateKeyHex: '0x' // replace with actual private key if available
         });
-
 
         const identifier = await agent.didManagerGet({ did: clientSubscriberDid });
         console.info("clientSubscriberDid did identifier: ", identifier)
-
-
-
-
-
-
- 
 
         /*
         // try out signing a message, just a capability demonstration
@@ -343,17 +337,15 @@ export const SendMcpMessage: React.FC = () => {
         console.info("didDoc: ", didDoc)
         */
 
-        // construct the verifiable credential and presentation for service request and payment permission
+        // construct the verifiable credential and presentation for service request and payment delegation
 
         // @ts-ignore
         const signerAAVC: AAKmsSigner = {
-
             async signTypedData(
-                domain: TypedDataDomain,
-                types: Record<string, Array<TypedDataField>>,
-                value: Record<string, any>,
+              domain: TypedDataDomain,
+              types: Record<string, Array<TypedDataField>>,
+              value: Record<string, any>,
             ): Promise<string> {
-
                 const result = await clientSubscriptionAccountClient?.signTypedData({
                     account: loginResp.owner, // EOA that controls the smart contract
 
@@ -379,39 +371,32 @@ export const SendMcpMessage: React.FC = () => {
                 }
                 return clientSubscriptionAccountClient.address;
             },
-
         };
 
-
         const vcAA = await agent.createVerifiableCredentialEIP1271({
-            credential: {
-                issuer: { id: clientSubscriberDid },
-                issuanceDate: new Date().toISOString(),
-                type: ['VerifiableCredential'],
-                credentialSubject:
-                {
-                    id: clientSubscriberDid,
-                    permission: JSON.stringify(permission),
-                 },
-                 
-                '@context': ['https://www.w3.org/2018/credentials/v1'],
+          credential: {
+            issuer: { id: clientSubscriberDid },
+            issuanceDate: new Date().toISOString(),
+            type: ['VerifiableCredential'],
+            credentialSubject: {
+              id: clientSubscriberDid,
+              paymentDelegation: JSON.stringify(paymentDel),
             },
-            signer: signerAAVC
 
+            '@context': ['https://www.w3.org/2018/credentials/v1'],
+          },
+
+          signer: signerAAVC
         })
 
-        console.info("service request and payment permission verifiable credential: ", vcAA)    
-         
+        console.info("service request and payment delegation verifiable credential: ", vcAA)
 
         // demonstrate verification of the verifiable credential
         const vcVerified = await agent.verifyCredentialEIP1271({ credential: vcAA, });
-        console.info("verify VC: ", vcVerified) 
-        
+        console.info("verify VC: ", vcVerified)
 
         // @ts-ignore
         const signerAAVP: AAKmsSigner = {
-
-            
             async signTypedData(
                 domain: TypedDataDomain,
                 types: Record<string, Array<TypedDataField>>,
@@ -454,26 +439,21 @@ export const SendMcpMessage: React.FC = () => {
                 signer: signerAAVP
             }
         );
-        console.info("verifiable presentation: ", vpAA) 
+        console.info("verifiable presentation: ", vpAA)
 
         // demonstrate verification of the verifiable presentation
         const vpVerified = await agent.verifyPresentationEIP1271({ presentation: vpAA, });
-        console.info("verify VP: ", vpVerified) 
+        console.info("verify VP: ", vpVerified)
 
-
-
-
-
-        /* 
+        /*
             vc and vp using masca if using did:dthr or did:pkh
-
 
         // get metamask current account did
         const snapId = 'npm:@blockchain-lab-um/masca'
         const mascaRslt = await enableMasca(address, {
             snapId: snapId,
             //supportedMethods: ['did:ethr', 'did:key', 'did:pkh'], // Specify supported DID methods
-            supportedMethods: ['did:pkh'], 
+            supportedMethods: ['did:pkh'],
         });
 
         const mascaApi = await mascaRslt.data.getMascaApi();
@@ -495,13 +475,12 @@ export const SendMcpMessage: React.FC = () => {
         });
         const challengeData = await challengeResult.json()
 
-
         // 1. Issue VC
         console.info("create vc with subject for did: ", holderDid)
         const unsignedCredential = {
             "@context": ["https://www.w3.org/2018/credentials/v1"],
             type: ["VerifiableCredential", "ExampleCredential"],
-            issuer: holderDid, 
+            issuer: holderDid,
             issuanceDate: new Date().toISOString(),
             credentialSubject: {
                 id: holderDid,
@@ -524,14 +503,13 @@ export const SendMcpMessage: React.FC = () => {
         console.info("challenge phrase: ", challengeData.challenge)
 
         // 2. Package VC into VP
-        
+
         const holder = holderDid
         const challenge = challengeData.challenge
         const domain = "wallet.myorgwallet.io"
 
         console.info("create vp with subject and challenge: ", holder, challenge)
-        
-     
+
         // did has to be loaded and to do that private key is needed
         const presentationResult = await agent.createVerifiablePresentation({
         presentation: {
@@ -542,9 +520,7 @@ export const SendMcpMessage: React.FC = () => {
         domain,
         challenge: challenge
         });
- 
 
-    
         const proofOptions = { type: 'EthereumEip712Signature2021', domain, challenge };
         const presentationResult = await mascaApi.createPresentation({
             vcs,
@@ -559,39 +535,50 @@ export const SendMcpMessage: React.FC = () => {
 
         */
 
-        const res = await fetch('http://localhost:3001/mcp', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-            type: 'AskForService',
-            sender: clientSubscriberDid,
-            payload: {
-                location: 'Erie, CO',
-                service: 'Lawn Care',
-                presentation: vpAA
-            },
-            }),
-        });
+      const res = await fetch('http://localhost:3001/mcp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+        type: 'AskForService',
+        sender: clientSubscriberDid,
+        payload: {
+            location: 'Erie, CO',
+            service: 'Lawn Care',
+            presentation: vpAA
+        },
+        }),
+      });
 
-        const data = await res.json();
-        setResponse(data);
+      const data = await res.json();
+
+      setResponse(data);
     } catch (err) {
-        console.error('Error sending MCP message:', err);
-        setResponse({ error: 'Request failed' });
+      console.error('Error sending MCP message:', err);
+
+      setResponse({ error: 'Request failed' });
     } finally {
-        setLoading(false);
+      setLoading(false);
     }
   };
 
   return (
-    <div style={{ padding: 20 }}>
-      <h2>Gator Lawn Service</h2>
-      <button onClick={handleSend} disabled={loading}>
+    <div>
+      <h2> Gator Lawn Service </h2>
+
+      <button className='service-button' onClick={handleSend} disabled={loading}>
         {loading ? 'Sending...' : 'Send MCP Lawn Service Request and Payment'}
       </button>
-
+      <button onClick={handleSendWebDIDJWT} >
+        {loading ? 'Sending...' : 'Send Web DID JWT'}
+      </button>
+      <button onClick={handleSendEthrDIDJWT} >
+        {loading ? 'Sending...' : 'Send Ethr DID JWT'}
+      </button>
+      <button onClick={handleSendAADIDJWT} >
+        {loading ? 'Sending...' : 'Send AA DID JWT'}
+      </button>
       {response && (
-        <div style={{ marginTop: 20 }}>
+        <div style={{ marginTop: 20, backgroundColor: 'black', color: 'white', padding: '2px 20px', borderRadius: '10px' }}>
           <h3>Response:</h3>
           <pre>{JSON.stringify(response, null, 2)}</pre>
         </div>
