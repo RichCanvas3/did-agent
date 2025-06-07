@@ -24,6 +24,7 @@
   Can be plugged into ZK circuits and Multi-Party Computation (MPC) wallets.
 
 ---
+## Demonstration
 
 ![Account Abstraction DID Demo](./did-aa-demo.jpg)
 
