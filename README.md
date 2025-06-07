@@ -1,6 +1,5 @@
 # Account Abstraction DID (did:aa:eip155:...).  Verifiable Credentials, Verifiable Presentation  leveraging EIP-1271
 
-![Account Abstraction DID Demo](./did-aa-demo.jpg)
 
 # Account Abstraction DID
 
