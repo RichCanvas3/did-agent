@@ -1,7 +1,15 @@
 import { SendMcpMessage } from '../components/SendMcpMessage';
 import '../custom-styles.css'
+import { useState, useEffect } from 'react';
+import { ethers } from 'ethers';
 
 const ExamplePage: React.FC = () => {
+
+
+  const handleAAWalletDeployed = (address: string) => {
+
+  };
+
   return (
     <>
       <h2> Account Abstraction DID (did:aa:eip155:...) Example </h2>
@@ -14,7 +22,9 @@ const ExamplePage: React.FC = () => {
         <li>Embedded native token stream payment permissions</li>
       </ul>
 
-      <SendMcpMessage />
+      <SendMcpMessage onAAWalletDeployed={handleAAWalletDeployed} />
+
+      
     </>
   );
 };

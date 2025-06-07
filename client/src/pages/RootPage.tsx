@@ -1,7 +1,46 @@
 import { ShoppingCartIcon, BriefcaseIcon, UserCircleIcon, StarIcon} from '@heroicons/react/20/solid'
 import '../custom-styles.css'
+import { useState, useEffect } from 'react';
+import { ethers } from 'ethers';
+import { SendMcpMessage } from '../components/SendMcpMessage';
 
 const RootPage: React.FC = () => {
+  const [eoaBalance, setEoaBalance] = useState<string>('');
+  const [aaBalance, setAaBalance] = useState<string>('');
+  const [aaWalletAddress, setAaWalletAddress] = useState<string>('');
+
+  useEffect(() => {
+    const fetchBalances = async () => {
+      try {
+        if ((window as any).ethereum) {
+          const provider = new ethers.BrowserProvider((window as any).ethereum);
+          const accounts = await provider.send("eth_requestAccounts", []);
+          if (accounts[0]) {
+            const balance = await provider.getBalance(accounts[0]);
+            setEoaBalance(ethers.formatEther(balance));
+          }
+
+          // Fetch AA wallet balance if address is available
+          if (aaWalletAddress) {
+            const aaBalance = await provider.getBalance(aaWalletAddress);
+            setAaBalance(ethers.formatEther(aaBalance));
+          }
+        }
+      } catch (error) {
+        console.error('Error fetching balances:', error);
+      }
+    };
+
+    fetchBalances();
+    // Poll for balance updates every 10 seconds
+    const interval = setInterval(fetchBalances, 10000);
+    return () => clearInterval(interval);
+  }, [aaWalletAddress]); // Added aaWalletAddress as dependency
+
+  const handleAAWalletDeployed = (address: string) => {
+    setAaWalletAddress(address);
+  };
+
   return (
     <div className="root-page">
       <div className="content">
