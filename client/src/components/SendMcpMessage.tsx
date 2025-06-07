@@ -26,9 +26,13 @@ import {
     toMetaMaskSmartAccount,
   } from "@metamask/delegation-toolkit";
 
+import {
+    createBundlerClient,
+  } from "viem/account-abstraction";
 
 import { erc7715ProviderActions } from "@metamask/delegation-toolkit/experimental";
 
+import { createPimlicoClient } from "permissionless/clients/pimlico";
 
 import { AAKmsSigner } from '@mcp/shared';
 
@@ -121,7 +125,7 @@ export const SendMcpMessage: React.FC = () => {
     // Money is still taken out of the metamask smart wallet defined by address.
     
     const accountClient = await toMetaMaskSmartAccount({
-        //address,
+        address,
         client: publicClient as any,
         implementation: Implementation.Hybrid,
         deployParams: [
@@ -261,29 +265,27 @@ export const SendMcpMessage: React.FC = () => {
         console.info("************* isDeployed: ", isDeployed)
         if (isDeployed == false) {
 
-            /*
 
             const pimlicoClient = createPimlicoClient({
-                transport: http(BUNDLER_URL),
+                transport: http(import.meta.env.VITE_BUNDLER_URL),
                 chain: sepolia
             });
 
             const bundlerClient = createBundlerClient({
-                transport: http(BUNDLER_URL) as any,
+                transport: http(import.meta.env.VITE_BUNDLER_URL) as any,
                 chain: sepolia as any,
                 paymaster: true,
-            }).extend(erc7710BundlerActions()) as any;
+            }) as any;
 
 
             const { fast: fee } = await pimlicoClient.getUserOperationGasPrice();
             const userOperationHash = await bundlerClient!.sendUserOperation({
-                account: orgAccountClient,
+                account: clientSubscriptionAccountClient,
                 calls: [
                     {
                     to: zeroAddress,
                     },
                 ],
-                paymaster: paymasterClient,
                 ...fee,
                 });
 
@@ -291,7 +293,7 @@ export const SendMcpMessage: React.FC = () => {
                 const { receipt } = await bundlerClient!.waitForUserOperationReceipt({
                 hash: userOperationHash,
             });
-            */
+           
 
         }
 

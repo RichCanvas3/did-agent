@@ -21,7 +21,7 @@
     "debug": "^4.4.1",
     "dotenv": "^16.5.0",
     "key-did-resolver": "^4.0.0",
-    "permissionless": "^0.0.34",
+    "permissionless": "^0.2.47",
     "pkh-did-resolver": "^2.0.0",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
@@ -37,8 +37,8 @@
     "eslint-plugin-react-hooks": "^5.2.0",
     "eslint-plugin-react-refresh": "^0.4.19",
     "globals": "^16.0.0",
+    "typescript": "^5.0.0",
     "typescript-eslint": "^8.30.1",
-    "vite": "^6.3.5",
-    "typescript": "^5.0.0"
+    "vite": "^6.3.5"
   }
 }
