@@ -7,13 +7,22 @@ import { ethers } from "ethers";
 import { sepolia } from "viem/chains";
 import { createPublicClient, createWalletClient, http, createClient, custom, parseEther, zeroAddress, toHex, type Address, encodeFunctionData, hashMessage } from "viem";
 import { agent } from '../agents/veramoAgent';
-import { Implementation, toMetaMaskSmartAccount, createCaveatBuilder, createDelegation } from "@metamask/delegation-toolkit";
+import { 
+  CreateDelegationOptions, 
+  Implementation, 
+  toMetaMaskSmartAccount, 
+  createCaveatBuilder, 
+  createDelegation,
+  DelegationFramework,
+  SINGLE_DEFAULT_MODE,
+} from "@metamask/delegation-toolkit";
+
 import { createPimlicoClient } from "permissionless/clients/pimlico";
 import { createBundlerClient } from "viem/account-abstraction";
 import { AAKmsSigner } from '@mcp/shared';
 import '../custom-styles.css';
 
-
+import { encodeNonce } from "permissionless/utils"
 
 
 // Add RPC URL constant
@@ -28,6 +37,8 @@ interface SendMcpMessageProps {
 
 export const SendMcpMessage: React.FC<SendMcpMessageProps> = ({ onAAWalletDeployed }) => {
 
+  
+  const [eoaAddress, setEoaAddress] = useState<string>('');
   const [eoaBalance, setEoaBalance] = useState<string>('');
   const [aaBalance, setAaBalance] = useState<string>('');
   const [aaWalletAddress, setAaWalletAddress] = useState<string>('');
@@ -39,6 +50,7 @@ export const SendMcpMessage: React.FC<SendMcpMessageProps> = ({ onAAWalletDeploy
         const accounts = await provider.send("eth_requestAccounts", []);
         if (accounts[0]) {
           const balance = await provider.getBalance(accounts[0]);
+          setEoaAddress(accounts[0])
           setEoaBalance(ethers.formatEther(balance));
         }
 
@@ -199,6 +211,21 @@ export const SendMcpMessage: React.FC<SendMcpMessageProps> = ({ onAAWalletDeploy
       console.info("........ challengeResult: ", challengeData)
   }
 
+  const handleSendEOADelegatedDIDCommJWT = async () => {
+
+    const challengeResult : any = await fetch('http://localhost:3001/mcp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+        type: 'handleSendEOADelegatedDIDCommJWT',
+        payload: {
+            action: 'ServiceSubscriptionRequest'
+        },
+        }),
+    });
+    const challengeData : any = await challengeResult.json()
+    console.info("........ challengeResult: ", challengeData)
+  }
   
 
   const handleSend = async () => {
@@ -271,6 +298,7 @@ export const SendMcpMessage: React.FC<SendMcpMessageProps> = ({ onAAWalletDeploy
           const message = "hello world"; // the signed message
           const clientSubScriberEOAEthrDid = "did:ethr:" + loginResp.owner.toLowerCase()
 
+          const clientEOASigner = loginResp.signatory.walletClient
 
           const signature2 = await loginResp.signatory.walletClient.signMessage({
               message: message,
@@ -332,20 +360,128 @@ export const SendMcpMessage: React.FC<SendMcpMessageProps> = ({ onAAWalletDeploy
             });
           }
 
-          // Transfer ETH from EOA to AA wallet
-          if (parseInt(aaBalance) == 0) {
-            if (!(window as any).ethereum) throw new Error("MetaMask not found");
-            const provider = new ethers.BrowserProvider((window as any).ethereum);
-            const signer = await provider.getSigner();
-            
-            const tx = await signer.sendTransaction({
-              to: clientSubscriberSmartAddress,
-              value: ethers.parseEther("0.001") // Sending 0.1 ETH
-            });
-            
-            await tx.wait();
-            console.log("✅ ETH Transfer successful:", tx.hash);
+
+
+          const delegation = createDelegation({
+            from: loginResp.owner,
+            to: clientSubscriberSmartAddress,
+            caveats: [],
+          });
+          delegation.authority ||= toHex(new Uint8Array(32)); // fallback to 0x00...00 if not set
+
+
+          const domain = {
+            name: "Delegation",
+            version: "1",
+            chainId: 11155111, // or the actual chain ID
+            verifyingContract: clientSubscriptionAccountClient.address, // or delegator account if relevant
+          };
+
+          const types = {
+            EIP712Domain: [
+              { name: "name", type: "string" },
+              { name: "version", type: "string" },
+              { name: "chainId", type: "uint256" },
+              { name: "verifyingContract", type: "address" },
+            ],
+            Delegation: [
+              { name: "delegate", type: "address" },
+              { name: "authority", type: "bytes32" },
+              { name: "caveats", type: "Caveat[]" },
+            ],
+            Caveat: [
+              { name: "enforcer", type: "address" },
+              { name: "terms", type: "bytes" },
+            ],
+          };
+
+          const msg = {
+            delegate: delegation.delegate,
+            authority: delegation.authority,
+            caveats: delegation.caveats,
+          };
+
+          const sig = await window.ethereum.request({
+            method: "eth_signTypedData_v4",
+            params: [loginResp.owner, JSON.stringify({ domain, types, primaryType: "Delegation", message: msg })],
+          });
+          
+
+                    
+          console.info("set signature for delegation")
+          const signedDelegation = {
+            ...delegation,
+            signature: sig,
           }
+
+          console.info("execute delegation")
+          const pimlicoClient = createPimlicoClient({
+            transport: http(import.meta.env.VITE_BUNDLER_URL),
+            chain: sepolia
+          });
+          const { fast: fee } = await pimlicoClient.getUserOperationGasPrice();
+
+          const bundlerClient = createBundlerClient({
+            transport: http(import.meta.env.VITE_BUNDLER_URL),
+            chain: sepolia,
+            paymaster: true,
+          }) as any;
+
+
+          //  does not work for direct custody or token transfers
+          const executions = [
+            {
+              target: clientSubscriptionAccountClient.address,
+              value: 10n,
+              callData: "0x" as `0x${string}`
+            },
+          ];
+
+          const delegationData = DelegationFramework.encode.redeemDelegations({
+            delegations: [ [signedDelegation] ],
+            modes: [SINGLE_DEFAULT_MODE],
+            executions: [executions]
+          });
+
+
+          const key1 = BigInt(Date.now()) 
+          const nonce1 = encodeNonce({ key: key1, sequence: 0n })
+          const userOperationHash = await bundlerClient.sendUserOperation({
+            account: clientSubscriptionAccountClient,
+            calls: [
+              {
+                to: clientSubscriptionAccountClient.address,
+                delegationData,
+              },
+            ],
+            nonce: nonce1,
+            ...fee
+            
+          });
+
+          const { receipt } = await bundlerClient.waitForUserOperationReceipt({
+              hash: userOperationHash,
+          });
+
+          console.info("delegation transfer from eoa to client smart account: ", receipt)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
           // create delegation to server smart account providing service these caveats
           let paymentDel = createDelegation({
@@ -647,6 +783,14 @@ export const SendMcpMessage: React.FC<SendMcpMessageProps> = ({ onAAWalletDeploy
         <h3 style={{ margin: '0 0 10px 0' }}>Wallet Balances</h3>
         <div style={{ display: 'flex', gap: '20px' }}>
           <div>
+            <strong>Client EOA Address:</strong> {eoaAddress ? `${eoaAddress} ` : 'Loading...'}
+          </div>
+          <div>
+            <strong>Client AA Wallet Balance:</strong> {aaWalletAddress ? `${aaWalletAddress} ` :  'Loading...' }
+          </div>
+        </div>
+        <div style={{ display: 'flex', gap: '20px' }}>
+          <div>
             <strong>Client EOA Balance:</strong> {eoaBalance ? `${eoaBalance} ETH` : 'Loading...'}
           </div>
           <div>
@@ -684,6 +828,11 @@ export const SendMcpMessage: React.FC<SendMcpMessageProps> = ({ onAAWalletDeploy
       </button>
       </div>
       <br></br>
+      <div>
+      <button onClick={handleSendEOADelegatedDIDCommJWT} >
+        {loading ? 'Sending...' : 'Send Delegated DIDComm JWT'}
+      </button>
+      </div>
       
     </div>
   );

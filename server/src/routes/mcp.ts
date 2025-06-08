@@ -532,7 +532,6 @@ const handleMcpRequest: RequestHandler = async (req, res) => {
     return
   }
 
-
   if (type === 'SendAADIDJWT' && process.env.SERVER_PRIVATE_KEY) {
 
     const owner : `0x${string}` = "0x0000000000000000000000000000000000000000"
@@ -605,6 +604,9 @@ const handleMcpRequest: RequestHandler = async (req, res) => {
 
   }
 
+  if (type === 'handleSendEOADelegatedDIDCommJWT') {
+  }
+  
   res.status(400).json({ error: 'Unsupported MCP type' })
 }
 

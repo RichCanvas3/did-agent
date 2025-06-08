@@ -11,6 +11,9 @@
 - **DIDComm-based Agent Interactions**  
   Supports DIDComm messaging across Model Context Protocol (MCP) agents.
 
+- **Multi-Signer Management**  
+  Enables organizations to distribute DID control across multiple authorized signers, with configurable thresholds and permissions for different operations.
+
 - **Simplified UI**  
   Utilizes gasless transactions, batching, and sponsored on-chain invocation via Paymasters.
 
@@ -22,6 +25,118 @@
 
 - **Zero-Knowledge and MPC Integration**  
   Can be plugged into ZK circuits and Multi-Party Computation (MPC) wallets.
+
+---
+## Implementation
+
+### DID Method Specification
+
+The Account Abstraction DID method follows the format:
+```
+did:aa:eip155:{chainId}:{smartAccountAddress}
+```
+
+### Core Components
+
+- **Smart Account Contract**  
+  Implements ERC-4337 and ERC-1271 for signature validation and account abstraction.
+
+- **DID Resolver**  
+  Resolves DID documents by querying on-chain state and metadata.
+
+- **Signature Provider**  
+  Handles EIP-712 typed data signing through delegated EOAs.  EOA signs on behalf of the Smart Account.
+
+### Core Infrastructure
+
+- **Ethereum DID Registry**  
+  The ethr-did-registry maintains core identity records. This forms the base layer of the DID Document with minimal verification and authentication data.
+
+  **Ethereum Attestation Service**
+  The ethereum attestation service maintains core metadata and delegation records
+
+- **Signature Verification**  
+  Validates VC, VP, and message signatures through ERC-1271's `isValidSignature`. No public key is required in the DID Document as verification happens on-chain.
+
+- **DID Document Structure**  
+  The complete AA DID Document combines data from multiple sources:
+
+  1. Base Layer (from ethr-did-registry):
+  ```json
+  {
+    "@context": "https://w3id.org/did/v1",
+    "id": "did:ethr:0x5:0xAaSmartWallet123...",
+    "verificationMethod": [
+      {
+        "id": "did:ethr:0x5:0xAaSmartWallet123#controller",
+        "type": "EcdsaSecp256k1RecoveryMethod2020",
+        "controller": "did:ethr:0x5:0xAaSmartWallet123",
+        "blockchainAccountId": "eip155:5:0xAaSmartWallet123"
+      }
+    ],
+    "authentication": [
+      "did:ethr:0x5:0xAaSmartWallet123#controller"
+    ]
+  }
+  ```
+
+  2. Extended Properties (from EAS):
+  - Delegation relationships
+  - Service endpoints
+  - Organization metadata
+  - Role-based permissions
+  - Custom attestations
+
+  ```json
+  {
+    "capabilityDelegation": [
+      {
+        "id": "eas:eip155:1:0xEasContract789:0xATTUID123",
+        "type": "EASDelegation2024",
+        "controller": "did:aa:eip155:1:0xDelegateAgent456",
+        "capability": "signVerifiableCredential",
+        "easSchema": "0xSchemaUID",
+        "attestationUid": "0xATTUID123",
+        "easContract": "0xEasContract789",
+        "validFrom": 1717800000,
+        "validUntil": 1719800000
+      }
+    ]
+  }
+  ```
+
+  The DID resolver combines these sources to construct the complete DID Document.
+
+### Account Abstraction Support Capabilities 
+
+- **DID Indexing Layer (Searchable)**
+
+- **Verifiable Credential and Verifiable Presentation**
+
+  Example Verifiable Credential:
+  ```json
+  {
+    "@context": [
+      "https://www.w3.org/2018/credentials/v1"
+    ],
+    "id": "urn:uuid:${uuid}",
+    "type": [
+      "VerifiableCredential",
+      "DIDMetadataCredential"
+    ],
+    "issuer": "did:aa:eip155:11155111:0xSmartAccountAddress",
+    "issuanceDate": "2024-03-20T12:00:00Z",
+    "credentialSubject": {
+      "id": "did:aa:eip155:11155111:0xSmartAccountAddress",
+      "metadata": {
+        "category": "Organization",
+        "industry": "Healthcare",
+        "registeredRegion": "Colorado",
+        "website": "https://example.org"
+      }
+    }
+  }
+  ```
 
 ---
 ## Demonstration
