@@ -137,6 +137,11 @@ did:aa:eip155:{chainId}:{smartAccountAddress}
     }
   }
   ```
+  **Social Login**
+  Allowing users to log in using social authentication mechanisms (e.g., Google, Facebook) alongside their DID-based identifier.
+
+  **Social Recovery**
+  Social Recovery: Implementing a recovery mechanism that utilizes social accounts to recover access to the Digital Identity Wallet in case of key loss or compromise.
 
 ---
 ## Demonstration

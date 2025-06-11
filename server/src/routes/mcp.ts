@@ -24,6 +24,7 @@ import {
   toMetaMaskSmartAccount,
   DelegationFramework,
   SINGLE_DEFAULT_MODE,
+  createDelegation,
 } from "@metamask/delegation-toolkit";
 import { sepolia } from 'viem/chains';
 
@@ -72,7 +73,45 @@ function parseAADid(didUrl: string): AADidParts {
   };
 }
 
+const getServerEOASmartAccount = async(key: string) : Promise<any> => {
+    
+  const publicClient = createPublicClient({
+    chain: sepolia,
+    transport: http(),
+  });
 
+  if (!key) {
+    throw new Error('SERVER_PRIVATE_KEY environment variable is not set');
+  }
+
+  const rawKey = key;
+  const serverPrivateKey = (rawKey.startsWith('0x') ? rawKey : `0x${rawKey}`) as `0x${string}`;
+  
+  if (!/^0x[0-9a-fA-F]{64}$/.test(serverPrivateKey)) {
+    throw new Error('Invalid private key format. Must be 32 bytes (64 hex characters) with optional 0x prefix');
+  }
+
+  const serverAccount = privateKeyToAccount(serverPrivateKey);
+  console.info("server EOA: ", serverAccount)
+
+
+  const account = await toMetaMaskSmartAccount({
+    address: serverAccount.address as `0x${string}`,
+      client: publicClient as any,
+      implementation: Implementation.Hybrid,
+      deployParams: [
+        serverAccount.address as `0x${string}`,
+        [] as string[],
+        [] as bigint[],
+        [] as bigint[]
+      ] as [owner: `0x${string}`, keyIds: string[], xValues: bigint[], yValues: bigint[]],
+      //deploySalt: "0x0000000000000000000000000000000000000000000000000000000000000001",
+      signatory: { account: serverAccount as any },
+  });
+
+  console.info("server AA: ", account.address)
+  return account
+}
 
 const getServerAccount = async(key: string) : Promise<any> => {
     
@@ -273,9 +312,11 @@ async function getBalance(address: string) {
 const handleMcpRequest: RequestHandler = async (req, res) => {
   const { type, sender, payload } = req.body
 
-  const serverAccount = await getServerAccount(process.env.SERVER_PRIVATE_KEY)
 
+  const serverAccount = await getServerAccount(process.env.SERVER_PRIVATE_KEY)
   
+
+
   const challenge = 'hello world ....' // make this random in real world implementation
   if (type == 'PresentationRequest') {
 
@@ -605,8 +646,135 @@ const handleMcpRequest: RequestHandler = async (req, res) => {
   }
 
   if (type === 'handleSendEOADelegatedDIDCommJWT') {
+
+    const serverEOA = await getServerEOASmartAccount(process.env.SERVER_PRIVATE_KEY)
+
+    const isDeployed = await serverEOA?.isDeployed()
+    console.info("************* is EOA Smart Account Deployed: ", isDeployed, serverEOA.address)
+
+    if (isDeployed == false) {
+      const pimlicoClient = createPimlicoClient({
+        transport: http(process.env.BUNDLER_URL),
+        chain: sepolia
+      });
+
+      const bundlerClient = createBundlerClient({
+        transport: http(process.env.BUNDLER_URL) as any,
+        chain: sepolia as any,
+        paymaster: true,
+      }) as any;
+
+      const { fast: fee } = await pimlicoClient.getUserOperationGasPrice();
+      const userOperationHash = await bundlerClient!.sendUserOperation({
+        account: serverEOA,
+        calls: [
+            {
+            to: zeroAddress,
+            },
+        ],
+        ...fee,
+        });
+
+        console.info("send user operation - done")
+        const { receipt } = await bundlerClient!.waitForUserOperationReceipt({
+        hash: userOperationHash,
+      });
+    }
+
+
+    console.info("create delegation from EOA AA to other AA")
+    const delegation = createDelegation({
+      from: serverEOA.address,
+      to: serverAccount.address,
+      caveats: [],
+    });
+
+
+    console.info("sign delegation")
+    const sig = await serverEOA.signDelegation({
+      delegation: delegation,
+    });
+
+    console.info("set signature for delegation")
+    const signedDelegation = {
+      ...delegation,
+      signature: sig,
+    }
+
+    console.info("sig: ", sig)
+
+
+    const eoaBalance = await getBalance(serverEOA.address)
+    console.info("EOA client AA balance: ", eoaBalance)
+
+    const serverBalance = await getBalance(serverAccount.address)
+    console.info("serverAccount AA balance: ", serverBalance)
+
+
+    const pimlicoClient = createPimlicoClient({
+      transport: http(process.env.BUNDLER_URL),
+      chain: sepolia
+    });
+    const { fast: fee } = await pimlicoClient.getUserOperationGasPrice();
+
+    const bundlerClient = createBundlerClient({
+      transport: http(process.env.BUNDLER_URL),
+      chain: sepolia,
+      paymaster: true,
+    }) as any;
+
+
+    const executions = [
+      {
+        target: serverAccount.address,
+        value: 1n,
+        callData: "0x" as `0x${string}`
+      },
+    ];
+
+    const data = DelegationFramework.encode.redeemDelegations({
+      delegations: [ [signedDelegation] ],
+      modes: [SINGLE_DEFAULT_MODE],
+      executions: [executions]
+    });
+
+
+    const key1 = BigInt(Date.now()) 
+    const nonce1 = encodeNonce({ key: key1, sequence: 0n })
+    const userOperationHash = await bundlerClient.sendUserOperation({
+      account: serverAccount,
+      calls: [
+        {
+          to: serverAccount.address,
+          data,
+        },
+      ],
+      nonce: nonce1,
+      ...fee
+      
+    });
+
+    const { receipt } = await bundlerClient.waitForUserOperationReceipt({
+        hash: userOperationHash,
+    });
+
+    const eoaBalance2 = await getBalance(serverEOA.address)
+    console.info("EOA client AA balance 2: ", eoaBalance2)
+
+    const serverBalance2 = await getBalance(serverAccount.address)
+    console.info("serverAccount AA balance 2: ", serverBalance2)
+
+    res.json({
+      type: 'SendEOADelegatedDIDCommJWT',
+      services: [
+        { name: 'Gator Lawn Service', location: 'Erie', confirmation: "web did jwt sent" }
+      ],
+    })
+
+    return
+
   }
-  
+
   res.status(400).json({ error: 'Unsupported MCP type' })
 }
 

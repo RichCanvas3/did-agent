@@ -107,6 +107,52 @@ export const SendMcpMessage: React.FC<SendMcpMessageProps> = ({ onAAWalletDeploy
     };
   };
 
+  const getEOASmartAccount = async(
+    owner: any,
+    signatory: any,
+    publicClient: any
+  ) : Promise<any> => {
+
+    // Issue with metamask smart contract created.  I don't have an owner address and cannot get signature using ERC-1271
+    // For now we return a default account for DID, VC and VP
+    // Money is still taken out of the metamask smart wallet defined by address.
+
+    const accountClient = await toMetaMaskSmartAccount({
+      address: owner,
+      client: publicClient as any,
+      implementation: Implementation.Hybrid,
+      deployParams: [
+          owner,
+        [] as string[],
+        [] as bigint[],
+        [] as bigint[]
+      ] as [owner: `0x${string}`, keyIds: string[], xValues: bigint[], yValues: bigint[]],
+      //deploySalt: "0x0000000000000000000000000000000000000000000000000000000000000001",
+      signatory: signatory as any,
+    });
+
+    // After creating the account client, we can check if it's deployed
+    const isDeployed = await accountClient.isDeployed();
+    console.log("Smart account deployment status:", isDeployed);
+
+    if (isDeployed) {
+      /*
+      try {
+          const provider = new ethers.JsonRpcProvider(RPC_URL);
+          const contract = new ethers.Contract(accountClient.address, accountAbstractionAbi, provider);
+          const contractOwner = await contract.owner();
+          console.log("Smart account owner:", contractOwner);
+      } catch (error) {
+          console.warn("Could not get owner of deployed account:", error);
+      }
+      */
+    } else {
+        console.log("Smart account not yet deployed");
+    }
+
+    return accountClient;
+  }
+
   const getClientSubscriberSmartAccount = async(
     owner: any,
     signatory: any,
@@ -257,8 +303,11 @@ export const SendMcpMessage: React.FC<SendMcpMessageProps> = ({ onAAWalletDeploy
           // generate payment delegation for service account
           const smartServiceAccountAddress = challengeData.address
 
-          const clientSubscriptionAccountClient = await getClientSubscriberSmartAccount(loginResp.owner, loginResp.signatory, publicClient)
+          const clientSubscriptionAccountClient = await getEOASmartAccount(loginResp.owner, loginResp.signatory, publicClient)
           console.info("client smart account address: ",  clientSubscriptionAccountClient.address)
+
+          const otherAccountClient = await getClientSubscriberSmartAccount(loginResp.owner, loginResp.signatory, publicClient)
+          console.info("other account address: ",  otherAccountClient.address)
 
           // Notify parent component about AA wallet address
           if (onAAWalletDeployed) {
@@ -329,7 +378,7 @@ export const SendMcpMessage: React.FC<SendMcpMessageProps> = ({ onAAWalletDeploy
 
 
           const isDeployed = await clientSubscriptionAccountClient?.isDeployed()
-          console.info("************* isDeployed: ", isDeployed)
+          console.info("************* is EOA Smart Account Deployed: ", isDeployed, clientSubscriptionAccountClient.address)
 
           if (isDeployed == false) {
             const pimlicoClient = createPimlicoClient({
@@ -359,60 +408,68 @@ export const SendMcpMessage: React.FC<SendMcpMessageProps> = ({ onAAWalletDeploy
               hash: userOperationHash,
             });
           }
+          
+          
+          const isOtherDeployed = await otherAccountClient?.isDeployed()
+          console.info("************* is Other Smart Account Deployed: ", isOtherDeployed, otherAccountClient.address)
 
+          if (isOtherDeployed == false) {
+            const pimlicoClient = createPimlicoClient({
+              transport: http(import.meta.env.VITE_BUNDLER_URL),
+              chain: sepolia
+            });
 
+            const bundlerClient = createBundlerClient({
+              transport: http(import.meta.env.VITE_BUNDLER_URL) as any,
+              chain: sepolia as any,
+              paymaster: true,
+            }) as any;
 
-          const delegation = createDelegation({
-            from: loginResp.owner,
-            to: clientSubscriberSmartAddress,
-            caveats: [],
-          });
-          delegation.authority ||= toHex(new Uint8Array(32)); // fallback to 0x00...00 if not set
+            const { fast: fee } = await pimlicoClient.getUserOperationGasPrice();
+            const userOperationHash = await bundlerClient!.sendUserOperation({
+              account: otherAccountClient,
+              calls: [
+                  {
+                  to: zeroAddress,
+                  },
+              ],
+              ...fee,
+              });
 
+              console.info("send user operation - done")
+              const { receipt } = await bundlerClient!.waitForUserOperationReceipt({
+              hash: userOperationHash,
+            });
+          }
 
-          const domain = {
-            name: "Delegation",
-            version: "1",
-            chainId: 11155111, // or the actual chain ID
-            verifyingContract: clientSubscriptionAccountClient.address, // or delegator account if relevant
-          };
-
-          const types = {
-            EIP712Domain: [
-              { name: "name", type: "string" },
-              { name: "version", type: "string" },
-              { name: "chainId", type: "uint256" },
-              { name: "verifyingContract", type: "address" },
-            ],
-            Delegation: [
-              { name: "delegate", type: "address" },
-              { name: "authority", type: "bytes32" },
-              { name: "caveats", type: "Caveat[]" },
-            ],
-            Caveat: [
-              { name: "enforcer", type: "address" },
-              { name: "terms", type: "bytes" },
-            ],
-          };
-
-          const msg = {
-            delegate: delegation.delegate,
-            authority: delegation.authority,
-            caveats: delegation.caveats,
-          };
-
-          const sig = await window.ethereum.request({
-            method: "eth_signTypedData_v4",
-            params: [loginResp.owner, JSON.stringify({ domain, types, primaryType: "Delegation", message: msg })],
-          });
           
 
-                    
+
+
+          console.info("create delegation from EOA AA to other AA")
+          const delegation = createDelegation({
+            from: clientSubscriptionAccountClient.address,
+            to: otherAccountClient.address,
+            caveats: [],
+          });
+
+
+
+          //const sig = await clientSubscriptionAccountClient.signDelegation({
+          //  delegation: delegation,
+          //});
+
+          console.info("sign delegation")
+          const sig = await clientSubscriptionAccountClient.signDelegation({
+            delegation: delegation,
+          });
+      
           console.info("set signature for delegation")
           const signedDelegation = {
             ...delegation,
             signature: sig,
           }
+      
 
           console.info("execute delegation")
           const pimlicoClient = createPimlicoClient({
@@ -428,10 +485,9 @@ export const SendMcpMessage: React.FC<SendMcpMessageProps> = ({ onAAWalletDeploy
           }) as any;
 
 
-          //  does not work for direct custody or token transfers
           const executions = [
             {
-              target: clientSubscriptionAccountClient.address,
+              target: otherAccountClient.address,
               value: 10n,
               callData: "0x" as `0x${string}`
             },
@@ -447,10 +503,10 @@ export const SendMcpMessage: React.FC<SendMcpMessageProps> = ({ onAAWalletDeploy
           const key1 = BigInt(Date.now()) 
           const nonce1 = encodeNonce({ key: key1, sequence: 0n })
           const userOperationHash = await bundlerClient.sendUserOperation({
-            account: clientSubscriptionAccountClient,
+            account: otherAccountClient,
             calls: [
               {
-                to: clientSubscriptionAccountClient.address,
+                to: otherAccountClient.address,
                 delegationData,
               },
             ],
