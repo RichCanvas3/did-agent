@@ -1,15 +1,13 @@
 import React, { useState } from 'react';
+import { agent } from '../../agents/veramoAgent';
 
 export const JwtActions: React.FC = () => {
-  const [webDidResult, setWebDidResult] = useState<any>(null);
-  const [ethrDidResult, setEthrDidResult] = useState<any>(null);
-  const [aaDidResult, setAaDidResult] = useState<any>(null);
-  const [delegatedDidCommResult, setDelegatedDidCommResult] = useState<any>(null);
   const [loading, setLoading] = useState<string | null>(null);
+  const [response, setResponse] = useState<any>(null);
 
   const handleSendWebDIDJWT = async () => {
     setLoading('web');
-    setWebDidResult(null);
+    setResponse(null);
     try {
       const challengeResult: any = await fetch('http://localhost:3001/mcp', {
         method: 'POST',
@@ -20,9 +18,9 @@ export const JwtActions: React.FC = () => {
         }),
       });
       const challengeData: any = await challengeResult.json();
-      setWebDidResult(challengeData);
+      setResponse({ type: 'web', data: challengeData });
     } catch (err) {
-      setWebDidResult({ error: 'Request failed' });
+      setResponse({ type: 'web', error: 'Request failed' });
     } finally {
       setLoading(null);
     }
@@ -30,7 +28,7 @@ export const JwtActions: React.FC = () => {
 
   const handleSendEthrDIDJWT = async () => {
     setLoading('ethr');
-    setEthrDidResult(null);
+    setResponse(null);
     try {
       const challengeResult: any = await fetch('http://localhost:3001/mcp', {
         method: 'POST',
@@ -41,9 +39,9 @@ export const JwtActions: React.FC = () => {
         }),
       });
       const challengeData: any = await challengeResult.json();
-      setEthrDidResult(challengeData);
+      setResponse({ type: 'ethr', data: challengeData });
     } catch (err) {
-      setEthrDidResult({ error: 'Request failed' });
+      setResponse({ type: 'ethr', error: 'Request failed' });
     } finally {
       setLoading(null);
     }
@@ -51,7 +49,7 @@ export const JwtActions: React.FC = () => {
 
   const handleSendAADIDJWT = async () => {
     setLoading('aa');
-    setAaDidResult(null);
+    setResponse(null);
     try {
       const challengeResult: any = await fetch('http://localhost:3001/mcp', {
         method: 'POST',
@@ -62,9 +60,9 @@ export const JwtActions: React.FC = () => {
         }),
       });
       const challengeData: any = await challengeResult.json();
-      setAaDidResult(challengeData);
+      setResponse({ type: 'aa', data: challengeData });
     } catch (err) {
-      setAaDidResult({ error: 'Request failed' });
+      setResponse({ type: 'aa', error: 'Request failed' });
     } finally {
       setLoading(null);
     }
@@ -72,7 +70,7 @@ export const JwtActions: React.FC = () => {
 
   const handleSendEOADelegatedDIDCommJWT = async () => {
     setLoading('delegated');
-    setDelegatedDidCommResult(null);
+    setResponse(null);
     try {
       const challengeResult: any = await fetch('http://localhost:3001/mcp', {
         method: 'POST',
@@ -83,57 +81,49 @@ export const JwtActions: React.FC = () => {
         }),
       });
       const challengeData: any = await challengeResult.json();
-      setDelegatedDidCommResult(challengeData);
+      setResponse({ type: 'delegated', data: challengeData });
     } catch (err) {
-      setDelegatedDidCommResult({ error: 'Request failed' });
+      setResponse({ type: 'delegated', error: 'Request failed' });
     } finally {
       setLoading(null);
     }
   };
 
   return (
-    <div>
-      <h2>JWT transfer and signature verification using Web DID, Ethr DID, and AA DID</h2>
-      <div style={{ marginBottom: 20 }}>
-        <button onClick={handleSendWebDIDJWT} disabled={loading === 'web'}>
+    <div style={{ maxWidth: 600, margin: '0 auto' }}>
+      <h2>JWT Actions</h2>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px', marginBottom: 20 }}>
+        <button className='service-button' onClick={handleSendWebDIDJWT} disabled={loading !== null}>
           {loading === 'web' ? 'Sending...' : 'Send Web DID JWT'}
         </button>
-        {webDidResult && (
-          <div style={{ marginTop: 10, background: '#f5f5f5', padding: 10, borderRadius: 6 }}>
-            <pre>{JSON.stringify(webDidResult, null, 2)}</pre>
-          </div>
-        )}
-      </div>
-      <div style={{ marginBottom: 20 }}>
-        <button onClick={handleSendEthrDIDJWT} disabled={loading === 'ethr'}>
+        <button className='service-button' onClick={handleSendEthrDIDJWT} disabled={loading !== null}>
           {loading === 'ethr' ? 'Sending...' : 'Send Ethr DID JWT'}
         </button>
-        {ethrDidResult && (
-          <div style={{ marginTop: 10, background: '#f5f5f5', padding: 10, borderRadius: 6 }}>
-            <pre>{JSON.stringify(ethrDidResult, null, 2)}</pre>
-          </div>
-        )}
-      </div>
-      <div style={{ marginBottom: 20 }}>
-        <button onClick={handleSendAADIDJWT} disabled={loading === 'aa'}>
+        <button className='service-button' onClick={handleSendAADIDJWT} disabled={loading !== null}>
           {loading === 'aa' ? 'Sending...' : 'Send AA DID JWT'}
         </button>
-        {aaDidResult && (
-          <div style={{ marginTop: 10, background: '#f5f5f5', padding: 10, borderRadius: 6 }}>
-            <pre>{JSON.stringify(aaDidResult, null, 2)}</pre>
-          </div>
-        )}
-      </div>
-      <div style={{ marginBottom: 20 }}>
-        <button onClick={handleSendEOADelegatedDIDCommJWT} disabled={loading === 'delegated'}>
+        <button className='service-button' onClick={handleSendEOADelegatedDIDCommJWT} disabled={loading !== null}>
           {loading === 'delegated' ? 'Sending...' : 'Send Delegated DIDComm JWT'}
         </button>
-        {delegatedDidCommResult && (
-          <div style={{ marginTop: 10, background: '#f5f5f5', padding: 10, borderRadius: 6 }}>
-            <pre>{JSON.stringify(delegatedDidCommResult, null, 2)}</pre>
-          </div>
-        )}
       </div>
+      {response && (
+        <div style={{
+          marginTop: 20,
+          padding: '15px',
+          backgroundColor: response.error ? '#f8d7da' : '#e8f5e8',
+          borderRadius: '8px',
+          border: `1px solid ${response.error ? '#f5c6cb' : '#28a745'}`
+        }}>
+          <h3 style={{ margin: '0 0 10px 0', color: response.error ? '#721c24' : '#155724' }}>
+            {response.error ? 'Error' : 'JWT Action Result'}
+          </h3>
+          <pre style={{ margin: 0, color: response.error ? '#721c24' : '#155724', fontSize: 14 }}>
+            {response.error
+              ? response.error
+              : JSON.stringify(response.data, null, 2)}
+          </pre>
+        </div>
+      )}
     </div>
   );
 }; 

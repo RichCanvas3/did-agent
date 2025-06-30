@@ -14,10 +14,6 @@ const Header: React.FC = () => {
             <li className='main-nav-li'> Intro </li>
           </a>
 
-          <a className='main-nav-link' href="/example">
-            <li className='main-nav-li'> Example </li>
-          </a>
-
           <a className='main-nav-link' href="/usdc">
             <li className='main-nav-li'> USDC </li>
           </a>

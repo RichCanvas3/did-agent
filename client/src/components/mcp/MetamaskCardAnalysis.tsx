@@ -192,6 +192,141 @@ export const MetamaskCardAnalysis: React.FC = () => {
         </button>
       </div>
 
+      {/* MetaMask Card Analysis Flow Description */}
+      <div style={{ 
+        marginTop: '20px', 
+        padding: '20px',
+        backgroundColor: '#f8f9fa',
+        borderRadius: '10px',
+        border: '1px solid #dee2e6'
+      }}>
+        <h3 style={{ margin: '0 0 15px 0', color: '#495057' }}>
+          MetaMask Card Analysis Flow
+        </h3>
+        <div style={{ 
+          display: 'grid', 
+          gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', 
+          gap: '15px' 
+        }}>
+          <div style={{ 
+            padding: '15px',
+            backgroundColor: '#e3f2fd',
+            borderRadius: '8px',
+            border: '1px solid #bbdefb'
+          }}>
+            <div style={{ 
+              width: '30px', 
+              height: '30px', 
+              borderRadius: '50%', 
+              backgroundColor: '#1976d2', 
+              color: 'white', 
+              display: 'flex', 
+              alignItems: 'center', 
+              justifyContent: 'center', 
+              fontWeight: 'bold',
+              marginBottom: '10px'
+            }}>
+              1
+            </div>
+            <h4 style={{ margin: '0 0 8px 0', color: '#1565c0' }}>Transaction Discovery</h4>
+            <p style={{ margin: '0', fontSize: '0.9em', color: '#424242' }}>
+              Query Lineascan API to find all withdraw() transactions from the MetaMask Card contract address within the specified block range.
+            </p>
+          </div>
+
+          <div style={{ 
+            padding: '15px',
+            backgroundColor: '#f3e5f5',
+            borderRadius: '8px',
+            border: '1px solid #e1bee7'
+          }}>
+            <div style={{ 
+              width: '30px', 
+              height: '30px', 
+              borderRadius: '50%', 
+              backgroundColor: '#7b1fa2', 
+              color: 'white', 
+              display: 'flex', 
+              alignItems: 'center', 
+              justifyContent: 'center', 
+              fontWeight: 'bold',
+              marginBottom: '10px'
+            }}>
+              2
+            </div>
+            <h4 style={{ margin: '0 0 8px 0', color: '#6a1b9a' }}>Token Transfer Analysis</h4>
+            <p style={{ margin: '0', fontSize: '0.9em', color: '#424242' }}>
+              Parse transaction receipts to extract ERC-20 Transfer events, identifying USDC movements from MetaMask Card EOAs to Central Card Fund.
+            </p>
+          </div>
+
+          <div style={{ 
+            padding: '15px',
+            backgroundColor: '#e8f5e8',
+            borderRadius: '8px',
+            border: '1px solid #c8e6c9'
+          }}>
+            <div style={{ 
+              width: '30px', 
+              height: '30px', 
+              borderRadius: '50%', 
+              backgroundColor: '#388e3c', 
+              color: 'white', 
+              display: 'flex', 
+              alignItems: 'center', 
+              justifyContent: 'center', 
+              fontWeight: 'bold',
+              marginBottom: '10px'
+            }}>
+              3
+            </div>
+            <h4 style={{ margin: '0 0 8px 0', color: '#2e7d32' }}>EOA Pattern Recognition</h4>
+            <p style={{ margin: '0', fontSize: '0.9em', color: '#424242' }}>
+              Analyze transaction patterns to identify EOA addresses that initiated withdraw calls and trace fund flow patterns.
+            </p>
+          </div>
+
+          <div style={{ 
+            padding: '15px',
+            backgroundColor: '#fff3e0',
+            borderRadius: '8px',
+            border: '1px solid #ffcc02'
+          }}>
+            <div style={{ 
+              width: '30px', 
+              height: '30px', 
+              borderRadius: '50%', 
+              backgroundColor: '#f57c00', 
+              color: 'white', 
+              display: 'flex', 
+              alignItems: 'center', 
+              justifyContent: 'center', 
+              fontWeight: 'bold',
+              marginBottom: '10px'
+            }}>
+              4
+            </div>
+            <h4 style={{ margin: '0 0 8px 0', color: '#ef6c00' }}>Statistical Reporting</h4>
+            <p style={{ margin: '0', fontSize: '0.9em', color: '#424242' }}>
+              Generate comprehensive statistics including total transactions, successful transfers, USDC amounts, and average withdrawal values.
+            </p>
+          </div>
+        </div>
+        
+        <div style={{ 
+          marginTop: '15px', 
+          padding: '10px',
+          backgroundColor: '#e8eaf6',
+          borderRadius: '5px',
+          border: '1px solid #c5cae9'
+        }}>
+          <strong style={{ color: '#3f51b5' }}>Key Technologies:</strong>
+          <span style={{ fontSize: '0.9em', color: '#424242', marginLeft: '5px' }}>
+            Lineascan API, Ethers.js, ERC-20 Event Parsing, Transaction Receipt Analysis, BigInt Processing
+          </span>
+        </div>
+      </div>
+
       {/* Analysis Statistics */}
       {analysisStats && (
         <div style={{
