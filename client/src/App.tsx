@@ -53,6 +53,11 @@ import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import Header from './components/Header'
 import Root from './pages/RootPage';
 import Example from './pages/ExamplePage';
+import McpUsdcPage from './pages/McpUsdcPage';
+import McpEthPage from './pages/McpEthPage';
+import JwtPage from './pages/JwtPage';
+import MetamaskCardPage from './pages/MetamaskCardPage';
+import PermissionDelegationPage from './pages/PermissionDelegationPage';
 
 const App: React.FC = () => {
   return (
@@ -66,6 +71,11 @@ const App: React.FC = () => {
             <Routes>
               <Route path="/" element={<Root />} />
               <Route path="/example" element={<Example />} />
+              <Route path="/usdc" element={<McpUsdcPage />} />
+              <Route path="/eth" element={<McpEthPage />} />
+              <Route path="/jwt" element={<JwtPage />} />
+              <Route path="/metamask-card" element={<MetamaskCardPage />} />
+              <Route path="/permission-delegation" element={<PermissionDelegationPage />} />
             </Routes>
           </Router>
           

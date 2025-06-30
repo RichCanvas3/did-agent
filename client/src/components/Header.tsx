@@ -11,11 +11,31 @@ const Header: React.FC = () => {
         <ul className='main-nav-ul'>
 
           <a className='main-nav-link' href="/">
-            <li className='main-nav-li'> Introduction </li>
+            <li className='main-nav-li'> Intro </li>
           </a>
 
           <a className='main-nav-link' href="/example">
             <li className='main-nav-li'> Example </li>
+          </a>
+
+          <a className='main-nav-link' href="/usdc">
+            <li className='main-nav-li'> USDC </li>
+          </a>
+
+          <a className='main-nav-link' href="/eth">
+            <li className='main-nav-li'> ETH </li>
+          </a>
+
+          <a className='main-nav-link' href="/jwt">
+            <li className='main-nav-li'> JWT </li>
+          </a>
+
+          <a className='main-nav-link' href="/metamask-card">
+            <li className='main-nav-li'> MetaMask </li>
+          </a>
+
+          <a className='main-nav-link' href="/permission-delegation">
+            <li className='main-nav-li'> Permissions </li>
           </a>
 
         </ul>
