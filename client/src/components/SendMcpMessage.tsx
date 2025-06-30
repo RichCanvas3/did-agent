@@ -47,6 +47,8 @@ export const SendMcpMessage: React.FC<SendMcpMessageProps> = ({ onAAWalletDeploy
   const [aaWalletAddress, setAaWalletAddress] = useState<string>('');
   const [metamaskCardResults, setMetamaskCardResults] = useState<any[]>([]);
   const [metamaskCardLoading, setMetamaskCardLoading] = useState(false);
+  const [usdcTransferResults, setUsdcTransferResults] = useState<any>(null);
+  const [usdcTransferLoading, setUsdcTransferLoading] = useState(false);
 
 
   const chain = sepolia;
@@ -769,170 +771,14 @@ export const SendMcpMessage: React.FC<SendMcpMessageProps> = ({ onAAWalletDeploy
     return userOperationReceipt;
   };
 
-  const retrieveAttestation = async (
-    transactionHash: string,
-    sourceChainId: number,
-  ) => {
 
-
-
-
-    //console.info("***********  DESTINATION_DOMAINS[sourceChainId]: ", DESTINATION_DOMAINS[sourceChainId], sourceChainId);
-
-    //const url = `${IRIS_API_URL}/v2/messages/${DESTINATION_DOMAINS[sourceChainId]}?transactionHash=${transactionHash}`;
-    console.info("***********  CIRCLE_API_KEY: ", CIRCLE_API_KEY);
-    //const url = `${IRIS_API_URL}/v2/messages/${DESTINATION_DOMAINS[sourceChainId]}?transactionHash=${transactionHash}`;
-    const url = `https://iris-api-sandbox.circle.com/v2/messages/${DESTINATION_DOMAINS[sourceChainId]}?transactionHash=${transactionHash}`;
-    console.info("***********  url: ", url);
-    
-    /*
-    const response = await axios.get(url, {
-      headers: {
-        Authorization: `Bearer ${CIRCLE_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-    });
-    */
-
-
-    let count = 0;
-    console.info("***********  url ****************", url);
-    while (true) {
-
-      try {
-        const response = await axios.get(url, {
-          headers: {
-            Authorization: `Bearer ${CIRCLE_API_KEY}`,
-            "Content-Type": "application/json",
-          },
-        },);
-
-
-        console.log("attestation response without", response);
-    
-        if (response.data?.messages?.[0]?.status === "pending") {
-          return response.data.messages[0];
-        }
-        if (response.data?.messages?.[0]?.status === "complete") {
-          return response.data.messages[0];
-        }
-        await new Promise((resolve) => setTimeout(resolve, 5000));
-      } catch (error) {
-        if (axios.isAxiosError(error) && error.response?.status === 404) {
-          await new Promise((resolve) => setTimeout(resolve, 5000));
-          continue;
-        }
-
-        console.info(
-          `Attestation error: ${error instanceof Error ? error.message : "Unknown error"}`,
-        );
-        throw error;
-      }
-    }
-      
-  };
-  
-  const mintUSDC = async (
-    destinationAddress: string,
-    destinationChainId: number,
-    attestation: any,
-  ) => {
-    const MAX_RETRIES = 3;
-    let retries = 0;
-
-    console.info("Minting USDC...");
-
-    while (retries < MAX_RETRIES) {
-      try {
-
-
-
-        const destinationMessageTransmitter = CHAIN_IDS_TO_MESSAGE_TRANSMITTER[destinationChainId] as `0x${string}`;
-
-        console.info("********** destinationMessageTransmitter *************", destinationMessageTransmitter);
-        console.info("********** destinationChainId *************", destinationChainId);
-
-        const contractConfig = {
-          address: destinationMessageTransmitter,
-          abi: [
-            {
-              type: "function",
-              name: "receiveMessage",
-              stateMutability: "nonpayable",
-              inputs: [
-                { name: "message", type: "bytes" },
-                { name: "attestation", type: "bytes" },
-              ],
-              outputs: [],
-            },
-          ] as const,
-        };
-
-        const CHAIN_RPC_URL = CHAIN_IDS_TO_RPC_URLS[destinationChainId]
-        const CHAIN = CHAINS[destinationChainId]
-
-        const publicClient = createPublicClient({
-          chain: CHAINS[destinationChainId],
-          transport: custom((window as any).ethereum),
-        });
-        const feeData = await publicClient.estimateFeesPerGas();
-
-        const walletClient = createWalletClient({
-          chain: CHAIN,
-          transport: custom((window as any).ethereum),
-          account: destinationAddress as `0x${string}`,
-        });
-
-        const gasEstimate = await publicClient.estimateContractGas({
-          ...contractConfig,
-          functionName: "receiveMessage",
-          args: [attestation.message, attestation.attestation],
-          account: destinationAddress as `0x${string}`,
-        });
-
-        
-
-     
-     
-        const gasWithBuffer = (gasEstimate * 120n) / 100n;
-        console.info(`Gas Used: ${formatUnits(gasWithBuffer, 9)} Gwei`);
-
-        console.info("********** send transaction *************")
-        const tx = await walletClient.sendTransaction({
-          to: contractConfig.address,
-          data: encodeFunctionData({
-            ...contractConfig,
-            functionName: "receiveMessage",
-            args: [attestation.message, attestation.attestation],
-          }),
-          gas: gasWithBuffer,
-          maxFeePerGas: feeData.maxFeePerGas,
-          maxPriorityFeePerGas: feeData.maxPriorityFeePerGas,
-        });
-       
-      
-   
-        
-
-        console.info(`Mint Tx: ${tx}`);
-
-        break;
-      } catch (err) {
-        if (err instanceof TransactionExecutionError && retries < MAX_RETRIES) {
-          retries++;
-          console.info(`Retry ${retries}/${MAX_RETRIES}...`);
-          await new Promise((resolve) => setTimeout(resolve, 2000 * retries));
-          continue;
-        }
-        throw err;
-      }
-    }
-  };
 
 
   const handleMCPAgentToAgentUSDCSend = async () => {
 
     try {
+      setUsdcTransferLoading(true);
+      setUsdcTransferResults(null);
 
       const loginResp = await login()
       const publicClient = createPublicClient({
@@ -1294,10 +1140,26 @@ export const SendMcpMessage: React.FC<SendMcpMessageProps> = ({ onAAWalletDeploy
 
       const dataPaymentRes = await paymentResponse.json();
 
+      const name = dataPaymentRes.name
+      const location = dataPaymentRes.location
+      const confirmation = dataPaymentRes.confirmation
+
+      // Set the USDC transfer results
+      setUsdcTransferResults({
+        name,
+        location,
+        confirmation,
+        transactionHash: burnTx.receipt.transactionHash,
+        amount: (Number(amount) / 10 ** 6).toFixed(2),
+        sourceChainId,
+        sourceAddress,
+        destinationChainId,
+        destinationAddress
+      });
 
 
-      setResponse(dataPaymentRes);
-      await fetchBalances()
+
+      return;
     
   } catch (err) {
     console.error('Error sending MCP message:', err);
@@ -1305,6 +1167,7 @@ export const SendMcpMessage: React.FC<SendMcpMessageProps> = ({ onAAWalletDeploy
     setResponse({ error: 'Request failed' });
   } finally {
     setLoading(false);
+    setUsdcTransferLoading(false);
   }
   }
 
@@ -1904,9 +1767,58 @@ export const SendMcpMessage: React.FC<SendMcpMessageProps> = ({ onAAWalletDeploy
       )}
       </div>
       <br></br>
-      <button className='service-button' onClick={handleMCPAgentToAgentUSDCSend} disabled={loading}>
-        {loading ? 'Sending...' : 'MCP agent-to-agent service aggreement and CCTP v2 USDC transfer:aa:eip155:...'}
+      <button className='service-button' onClick={handleMCPAgentToAgentUSDCSend} disabled={usdcTransferLoading}>
+        {usdcTransferLoading ? 'Processing USDC Transfer...' : 'MCP agent-to-agent service agreement and CCTP v2 USDC transfer:aa:eip155:...'}
       </button>
+      
+      {usdcTransferResults && (
+        <div style={{ 
+          marginTop: '20px', 
+          padding: '15px',
+          backgroundColor: '#e8f5e8',
+          borderRadius: '8px',
+          border: '1px solid #28a745'
+        }}>
+          <h3 style={{ margin: '0 0 15px 0', color: '#155724' }}>
+            USDC Cross Chain CCTP v2 Transfer Results
+          </h3>
+          
+          <div style={{ 
+            marginBottom: '10px', 
+            padding: '10px',
+            backgroundColor: 'white',
+            borderRadius: '5px',
+            border: '1px solid #d4edda'
+          }}>
+            
+            <div>
+              <strong>USDC Amount:</strong> 
+              <span style={{ color: '#28a745', fontWeight: 'bold' }}>
+                {usdcTransferResults.amount} USDC
+              </span>
+            </div>
+            <div>
+              <strong>Source Chain ID:</strong> {usdcTransferResults.sourceChainId}
+            </div>
+            <div>
+              <strong>Source Address:</strong> 
+              <span style={{ fontFamily: 'monospace', fontSize: '0.9em' }}>
+                {usdcTransferResults.sourceAddress}
+              </span>
+            </div>
+            <div>
+              <strong>Destination Chain ID:</strong> {usdcTransferResults.destinationChainId}
+            </div>
+            <div>
+              <strong>Destination Address:</strong> 
+              <span style={{ fontFamily: 'monospace', fontSize: '0.9em' }}>
+                {usdcTransferResults.destinationAddress}
+              </span>
+            </div>
+          </div>
+        </div>
+      )}
+      
       <br></br>
       <div>
         <h2>JWT transfer and signature verification using Web DID, Ethr DID, and AA DID</h2>

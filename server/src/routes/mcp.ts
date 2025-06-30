@@ -47,6 +47,7 @@ const mcpRoutes: express.Router = express.Router()
 const provider = new ethers.JsonRpcProvider(process.env.RPC_URL);
 
 const defaultChain = baseSepolia
+const defaultServiceCrossChainChain = baseSepolia
 
 export type AADidParts = {
   did: string;
@@ -520,21 +521,7 @@ const handleMcpRequest: RequestHandler = async (req, res) => {
     })
     return
   }
-  if (type == 'ServiceRequest') {
-    if (!process.env.SERVER_PRIVATE_KEY) {
-      res.status(500).json({ error: 'SERVER_PRIVATE_KEY environment variable is not set' });
-      return;
-    }
-    const serverAccount = await getServerAccount(process.env.SERVER_PRIVATE_KEY, defaultChain)
-    const serverDid = "did:aa:eip155:" + defaultChain.id + ":" + serverAccount.address
-    console.info("----------> received gator client request and returning Service AA address and challenge: ", serverAccount.address)
-    res.json({
-        type: 'Challenge',
-        challenge: challenge,
-        did: serverDid
-    })
-    return
-  }
+
 
   if (type === 'AskForService') {
     try {
@@ -658,6 +645,22 @@ const handleMcpRequest: RequestHandler = async (req, res) => {
     return
   }
 
+  // these mcp request support cross chain service requests and payment processing
+  if (type == 'ServiceRequest') {
+    if (!process.env.SERVER_PRIVATE_KEY) {
+      res.status(500).json({ error: 'SERVER_PRIVATE_KEY environment variable is not set' });
+      return;
+    }
+    const serverAccount = await getServerAccount(process.env.SERVER_PRIVATE_KEY, defaultServiceCrossChainChain)
+    const serverDid = "did:aa:eip155:" + defaultServiceCrossChainChain.id + ":" + serverAccount.address
+    console.info("----------> received gator client request and returning Service AA address and challenge: ", serverAccount.address)
+    res.json({
+        type: 'Challenge',
+        challenge: challenge,
+        did: serverDid
+    })
+    return
+  }
   if (type === 'AskForServiceProposal') {
     try {
       console.info("----------> received gator client service request with VC containing recuring payment information ")
@@ -720,7 +723,6 @@ const handleMcpRequest: RequestHandler = async (req, res) => {
     }
     return
   }
-
   if (type === 'ProcessPayment') {
     console.info("***********  ProcessPayment ****************", payload);
     const transactionHash = payload.transactionHash
@@ -731,8 +733,8 @@ const handleMcpRequest: RequestHandler = async (req, res) => {
       return;
     }
 
-    const serviceAddress = await getServerAccount(process.env.SERVER_PRIVATE_KEY, defaultChain)
-    const serviceChainId = defaultChain.id
+    const serviceAddress = await getServerAccount(process.env.SERVER_PRIVATE_KEY, defaultServiceCrossChainChain)
+    const serviceChainId = defaultServiceCrossChainChain.id
 
     const { chainId: sourceChainId, address: sourceAddress } = extractFromAccountDid(clientDid) || {};
 
@@ -754,6 +756,8 @@ const handleMcpRequest: RequestHandler = async (req, res) => {
         { name: 'Gator Lawn Service', location: 'Erie', confirmation: "payment processed" }
       ],
     })
+
+    return
   }
 
   if (type === 'SendWebDIDJWT') {
