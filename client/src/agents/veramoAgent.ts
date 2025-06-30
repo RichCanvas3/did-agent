@@ -3,7 +3,7 @@ import { Resolver } from 'did-resolver';
 import { getResolver as ethrDidResolver } from 'ethr-did-resolver'
 
 import { DIDResolverPlugin } from '@veramo/did-resolver';
-import { sepolia } from "viem/chains";
+
 
 import {
   KeyManager,
@@ -36,7 +36,8 @@ const didProviders: Record<string, AADidProvider> = {
 const aaKMS = new AAKeyManagementSystem(didProviders)
 
 console.info("SEPOLIA_RPC_URL: ", import.meta.env.VITE_SEPOLIA_RPC_URL )
-console.info("MAINNET_RPC_URL: ", import.meta.env.VITE_MAINNET_RPC_URL)
+console.info("ETHEREUM_RPC_URL: ", import.meta.env.VITE_ETHERUM_RPC_URL)
+console.info("LINEA_RPC_URL: ", import.meta.env.VITE_LINEA_RPC_URL)
 
 export type Agent = TAgent<ICredentialVerifier & IDIDManager & IKeyManager & IResolver>
 export const agent: Agent = createAgent({
@@ -60,11 +61,15 @@ export const agent: Agent = createAgent({
           networks: [
             {
               name: 'mainnet',
-              rpcUrl: import.meta.env.VITE_MAINNET_RPC_URL as string,
+              rpcUrl: import.meta.env.VITE_ETHEREUM_RPC_URL as string,
             },
             {
               name: 'sepolia',
               rpcUrl: import.meta.env.VITE_SEPOLIA_RPC_URL as string,
+            },
+            {
+              name: 'linea',
+              rpcUrl: import.meta.env.VITE_LINEA_RPC_URL as string,
             },
           ],
         }),

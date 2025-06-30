@@ -295,7 +295,7 @@ Create a `.env` file in the server directory with the following variables:
 
 ```env
 OPTIMISM_RPC_URL=your_optimism_rpc_url
-MAINNET_RPC_URL=your_mainnet_rpc_url
+ETHEREUM_RPC_URL=your_mainnet_rpc_url
 ```
 
 ## License

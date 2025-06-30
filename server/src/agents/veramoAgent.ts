@@ -46,11 +46,15 @@ export const resolver = new Resolver({
       networks: [
         {
           name: 'mainnet',
-          rpcUrl: process.env.MAINNET_RPC_URL as string,
+          rpcUrl: process.env.ETHEREUM_RPC_URL as string,
         },
         {
           name: 'sepolia',
           rpcUrl: process.env.SEPOLIA_RPC_URL as string,
+        },
+        {
+          name: 'linea',
+          rpcUrl: process.env.LINEA_RPC_URL as string,
         },
       ],
     }),

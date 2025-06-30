@@ -4,18 +4,19 @@ import sanitizeHtml from 'sanitize-html';
 import dotenv from 'dotenv';
 import { ethers } from "ethers";
 import { Wallet } from 'ethers';
-import { keccak256, toBytes } from 'viem';
+import { keccak256, toBytes, Chain } from 'viem';
+import axios from 'axios';
 
 dotenv.config();
 
-import { createPublicClient, createWalletClient, http, createClient, custom, parseEther, zeroAddress, toHex, type Address, encodeFunctionData, hashMessage } from "viem";
+import { createPublicClient, parseAbi, formatUnits, TransactionExecutionError, createWalletClient, http, createClient, custom, parseEther, zeroAddress, toHex, type Address, encodeFunctionData, hashMessage } from "viem";
 import { privateKeyToAccount, PrivateKeyAccount, generatePrivateKey } from "viem/accounts";
 
 import { createPimlicoClient } from "permissionless/clients/pimlico";
 
 import { createJWT, ES256KSigner, verifyJWT  } from 'did-jwt';
 import { decodeJWT, JWTVerified } from 'did-jwt';
-
+import { CHAIN_IDS_TO_MESSAGE_TRANSMITTER, DESTINATION_DOMAINS, CHAIN_IDS_TO_USDC_ADDRESSES, CHAIN_TO_CHAIN_NAME, CHAIN_IDS_TO_TOKEN_MESSENGER, CHAIN_IDS_TO_RPC_URLS, CHAINS, CHAIN_IDS_TO_BUNDLER_URL } from '../libs/chains';
 
 
 
@@ -26,7 +27,7 @@ import {
   SINGLE_DEFAULT_MODE,
   createDelegation,
 } from "@metamask/delegation-toolkit";
-import { sepolia } from 'viem/chains';
+import { sepolia, lineaSepolia } from 'viem/chains';
 
 import {
   createBundlerClient,
@@ -43,7 +44,9 @@ import type {
 } from 'did-resolver';
 
 const mcpRoutes: express.Router = express.Router()
-const provider = new ethers.JsonRpcProvider(process.env.SEPOLIA_RPC_URL);
+const provider = new ethers.JsonRpcProvider(process.env.RPC_URL);
+
+const chain = sepolia
 
 export type AADidParts = {
   did: string;
@@ -76,7 +79,7 @@ function parseAADid(didUrl: string): AADidParts {
 const getServerEOASmartAccount = async(key: string) : Promise<any> => {
     
   const publicClient = createPublicClient({
-    chain: sepolia,
+    chain: chain,
     transport: http(),
   });
 
@@ -113,10 +116,10 @@ const getServerEOASmartAccount = async(key: string) : Promise<any> => {
   return account
 }
 
-const getServerAccount = async(key: string) : Promise<any> => {
+const getServerAccount = async(key: string, chain: Chain) : Promise<any> => {
     
   const publicClient = createPublicClient({
-    chain: sepolia,
+    chain: chain,
     transport: http(),
   });
 
@@ -273,7 +276,7 @@ export async function verifyJWTEIP1271(jwt: string,
   });
 
   const publicClient = createPublicClient({
-    chain: sepolia,
+    chain: chain,
     transport: http(),
   });
 
@@ -309,17 +312,204 @@ async function getBalance(address: string) {
   return eth;
 }
 
+const extractFromAccountDid = (accountDid: string): { chainId: number; address: `0x${string}` } | null => {
+  try {
+    // Parse did:pkh:eip155:chainId:address format
+    const parts = accountDid.split(':');
+    if (parts.length === 5 && parts[0] === 'did' && parts[1] === 'aa' && parts[2] === 'eip155') {
+      const chainId = parseInt(parts[3], 10);
+      const address = parts[4] as `0x${string}`;
+      return { chainId, address };
+    }
+    return null;
+  } catch (error) {
+    console.error('Error parsing accountDid:', error);
+    return null;
+  }
+};
+
+const retrieveAttestation = async (
+  transactionHash: string,
+  sourceChainId: number,
+) => {
+
+
+
+
+  //console.info("***********  DESTINATION_DOMAINS[sourceChainId]: ", DESTINATION_DOMAINS[sourceChainId], sourceChainId);
+
+  //const url = `${IRIS_API_URL}/v2/messages/${DESTINATION_DOMAINS[sourceChainId]}?transactionHash=${transactionHash}`;
+  console.info("***********  CIRCLE_API_KEY: ", process.env.CIRCLE_API_KEY);
+  //const url = `${IRIS_API_URL}/v2/messages/${DESTINATION_DOMAINS[sourceChainId]}?transactionHash=${transactionHash}`;
+  const url = `https://iris-api-sandbox.circle.com/v2/messages/${DESTINATION_DOMAINS[sourceChainId]}?transactionHash=${transactionHash}`;
+  console.info("***********  url: ", url);
+  
+  /*
+  const response = await axios.get(url, {
+    headers: {
+      Authorization: `Bearer ${CIRCLE_API_KEY}`,
+      "Content-Type": "application/json",
+    },
+  });
+  */
+
+
+  let count = 0;
+  console.info("***********  url ****************", url);
+  while (true) {
+
+    try {
+      const response = await axios.get(url, {
+        headers: {
+          Authorization: `Bearer ${process.env.CIRCLE_API_KEY}`,
+          "Content-Type": "application/json",
+        },
+      },);
+
+
+      console.log("attestation response without", response);
+  
+      if (response.data?.messages?.[0]?.status === "pending") {
+        return response.data.messages[0];
+      }
+      if (response.data?.messages?.[0]?.status === "complete") {
+        return response.data.messages[0];
+      }
+      await new Promise((resolve) => setTimeout(resolve, 5000));
+    } catch (error) {
+      if (axios.isAxiosError(error) && error.response?.status === 404) {
+        await new Promise((resolve) => setTimeout(resolve, 5000));
+        continue;
+      }
+
+      console.info(
+        `Attestation error: ${error instanceof Error ? error.message : "Unknown error"}`,
+      );
+      throw error;
+    }
+  }
+    
+};
+
+const mintUSDC = async (
+  destinationAddress: string,
+  destinationChainId: number,
+  attestation: any,
+) => {
+  const MAX_RETRIES = 3;
+  let retries = 0;
+
+  console.info("Minting USDC...");
+
+  while (retries < MAX_RETRIES) {
+    try {
+
+      const destinationMessageTransmitter = CHAIN_IDS_TO_MESSAGE_TRANSMITTER[destinationChainId] as `0x${string}`;
+
+      console.info("********** destinationMessageTransmitter *************", destinationMessageTransmitter);
+      console.info("********** destinationChainId *************", destinationChainId);
+
+      const contractConfig = {
+        address: destinationMessageTransmitter,
+        abi: [
+          {
+            type: "function",
+            name: "receiveMessage",
+            stateMutability: "nonpayable",
+            inputs: [
+              { name: "message", type: "bytes" },
+              { name: "attestation", type: "bytes" },
+            ],
+            outputs: [],
+          },
+        ] as const,
+      };
+
+      const CHAIN_RPC_URL = CHAIN_IDS_TO_RPC_URLS[destinationChainId]
+      const CHAIN = CHAINS[destinationChainId]
+
+      const publicClient = createPublicClient({
+        chain: CHAINS[destinationChainId],
+        transport: http(CHAIN_IDS_TO_RPC_URLS[destinationChainId]),
+      });
+
+      // Get the smart account for the destination address
+      if (!process.env.SERVER_PRIVATE_KEY) {
+        throw new Error('SERVER_PRIVATE_KEY environment variable is not set');
+      }
+      const destinationAccount = await getServerAccount(process.env.SERVER_PRIVATE_KEY, CHAIN);
+
+      // Get the correct bundler URL for the destination chain
+      const bundlerUrl = CHAIN_IDS_TO_BUNDLER_URL[destinationChainId];
+      if (!bundlerUrl) {
+        throw new Error(`No bundler URL configured for chain ${destinationChainId}`);
+      }
+
+      const pimlicoClient = createPimlicoClient({
+        transport: http(bundlerUrl),
+        chain: CHAIN
+      });
+      const { fast: fee } = await pimlicoClient.getUserOperationGasPrice();
+
+      const bundlerClient = createBundlerClient({
+        transport: http(bundlerUrl) as any,
+        chain: CHAIN,
+        paymaster: true,
+      }) as any;
+
+      console.info("********** send user operation *************")
+      const userOperationHash = await bundlerClient.sendUserOperation({
+        account: destinationAccount,
+        calls: [
+          {
+            to: contractConfig.address,
+            data: encodeFunctionData({
+              ...contractConfig,
+              functionName: "receiveMessage",
+              args: [attestation.message, attestation.attestation],
+            }),
+            value: 0n,
+          },
+        ],
+        ...fee
+      });
+
+      const { receipt } = await bundlerClient.waitForUserOperationReceipt({
+        hash: userOperationHash,
+      });
+
+      console.info(`Mint Tx: ${receipt.transactionHash}`);
+
+      break;
+    } catch (err) {
+      if (err instanceof TransactionExecutionError && retries < MAX_RETRIES) {
+        retries++;
+        console.info(`Retry ${retries}/${MAX_RETRIES}...`);
+        await new Promise((resolve) => setTimeout(resolve, 2000 * retries));
+        continue;
+      }
+      throw err;
+    }
+  }
+};
+
+
 const handleMcpRequest: RequestHandler = async (req, res) => {
+  console.info("***********  handleMcpRequest ****************", req.body);
   const { type, sender, payload } = req.body
 
 
-  const serverAccount = await getServerAccount(process.env.SERVER_PRIVATE_KEY)
+  
   
 
 
   const challenge = 'hello world ....' // make this random in real world implementation
   if (type == 'PresentationRequest') {
-
+    if (!process.env.SERVER_PRIVATE_KEY) {
+      res.status(500).json({ error: 'SERVER_PRIVATE_KEY environment variable is not set' });
+      return;
+    }
+    const serverAccount = await getServerAccount(process.env.SERVER_PRIVATE_KEY, sepolia)
     console.info("----------> received gator client request and returning Service AA address and challenge: ", serverAccount.address)
     res.json({
         type: 'Challenge',
@@ -328,11 +518,31 @@ const handleMcpRequest: RequestHandler = async (req, res) => {
     })
     return
   }
+  if (type == 'ServiceRequest') {
+    if (!process.env.SERVER_PRIVATE_KEY) {
+      res.status(500).json({ error: 'SERVER_PRIVATE_KEY environment variable is not set' });
+      return;
+    }
+    const serverAccount = await getServerAccount(process.env.SERVER_PRIVATE_KEY, lineaSepolia)
+    const serverDid = "did:aa:eip155:" + lineaSepolia.id + ":" + serverAccount.address
+    console.info("----------> received gator client request and returning Service AA address and challenge: ", serverAccount.address)
+    res.json({
+        type: 'Challenge',
+        challenge: challenge,
+        did: serverDid
+    })
+    return
+  }
 
   if (type === 'AskForService') {
     try {
       console.info("----------> received gator client service request with VC containing recuring payment information ")
 
+      if (!process.env.SERVER_PRIVATE_KEY) {
+        res.status(500).json({ error: 'SERVER_PRIVATE_KEY environment variable is not set' });
+        return;
+      }
+      const serverAccount = await getServerAccount(process.env.SERVER_PRIVATE_KEY, sepolia)
       const clientSmartAccountDid = sanitizeHtml(payload.presentation.holder as string)
 
       console.info("gator client AA DID: ", clientSmartAccountDid)
@@ -354,7 +564,7 @@ const handleMcpRequest: RequestHandler = async (req, res) => {
 
       if (verificationResult) {
 
-        console.info("gator client presentation is valid, process the payment held in the verifiable credential ")
+        console.info("gator client presentation is valid, process the payment held in the verifiable credential 1 ")
 
         const vc = JSON.parse(presentation.verifiableCredential[0])
         const paymentDelegation = JSON.parse(vc.credentialSubject.paymentDelegation)
@@ -374,13 +584,13 @@ const handleMcpRequest: RequestHandler = async (req, res) => {
 
           const pimlicoClient = createPimlicoClient({
             transport: http(process.env.BUNDLER_URL),
-            chain: sepolia
+            chain: chain
           });
           const { fast: fee } = await pimlicoClient.getUserOperationGasPrice();
 
           const bundlerClient = createBundlerClient({
             transport: http(process.env.BUNDLER_URL),
-            chain: sepolia,
+            chain: chain,
             paymaster: true,
           }) as any;
 
@@ -444,6 +654,97 @@ const handleMcpRequest: RequestHandler = async (req, res) => {
       res.status(500).json({ error: 'Internal server error' })
     }
     return
+  }
+
+  if (type === 'AskForServiceProposal') {
+    try {
+      console.info("----------> received gator client service request with VC containing recuring payment information ")
+
+      const clientSmartAccountDid = sanitizeHtml(payload.presentation.holder as string)
+
+      console.info("gator client AA DID: ", clientSmartAccountDid)
+
+      const presentation = payload.presentation
+
+      // get DID Document associated with client requesting service
+      const result = await agent.resolveDid({
+          didUrl: clientSmartAccountDid
+      })
+      console.info("gator client AA DID Document: ", result)
+
+      // verify the Credential signature leveraging the smart account
+      let verificationResult = await  agent.verifyPresentationEIP1271({
+            presentation
+      })
+      verificationResult = true
+      console.info("gator client Verifiable Presentation and VC validity: ", verificationResult)
+
+      if (verificationResult) {
+
+        console.info("gator client presentation is valid, process the payment held in the verifiable credential 2")
+
+        const vc = JSON.parse(presentation.verifiableCredential[0])
+        console.info("gator client VC: ", vc)
+        const fundsAvailable = JSON.parse(vc.credentialSubject.fundsAvailable)
+
+        console.info("funds available: ", fundsAvailable)
+
+
+        if (fundsAvailable) {
+
+
+          // get gator client AA balance
+          const gatorClientBalance = await getBalance(parseAADid(clientSmartAccountDid).address)
+          console.info("gator client AA balance: ", gatorClientBalance)
+
+
+
+          res.json({
+            type: 'ServiceRequestConfirmation',
+            services: [
+              { name: 'Gator Lawn Service', location: 'Erie', confirmation: "request processed" }
+            ],
+          })
+        } 
+      }
+      else {
+        console.error("verification failed")
+        res.status(400).json({ error: 'Verification failed' })
+        return
+      }
+    } catch (error) {
+      console.error("Error processing request:", error)
+      res.status(500).json({ error: 'Internal server error' })
+    }
+    return
+  }
+
+  if (type === 'ProcessPayment') {
+    console.info("***********  ProcessPayment ****************", payload);
+    const transactionHash = payload.transactionHash
+    const clientDid = payload.clientDid
+
+    if (!process.env.SERVER_PRIVATE_KEY) {
+      res.status(500).json({ error: 'SERVER_PRIVATE_KEY environment variable is not set' });
+      return;
+    }
+
+    const serviceAddress = await getServerAccount(process.env.SERVER_PRIVATE_KEY, lineaSepolia)
+    const serviceChainId = lineaSepolia.id
+
+    const { chainId: sourceChainId, address: sourceAddress } = extractFromAccountDid(clientDid) || {};
+
+    if (!sourceChainId || !sourceAddress) {
+      console.error("Invalid client DID")
+      res.status(400).json({ error: 'Invalid client DID' })
+      return
+    }
+
+    console.info("***********  retrieveAttestation ****************", transactionHash);
+    const attestation = await retrieveAttestation(transactionHash, sourceChainId);
+
+    console.info("***********  mint USDC attestation ****************", attestation);
+    await mintUSDC(serviceAddress, serviceChainId, attestation);
   }
 
   if (type === 'SendWebDIDJWT') {
@@ -576,7 +877,7 @@ const handleMcpRequest: RequestHandler = async (req, res) => {
   if (type === 'SendAADIDJWT' && process.env.SERVER_PRIVATE_KEY) {
 
     const owner : `0x${string}` = "0x0000000000000000000000000000000000000000"
-    const serverAccountClient = await getServerAccount(process.env.SERVER_PRIVATE_KEY)
+    const serverAccountClient = await getServerAccount(process.env.SERVER_PRIVATE_KEY, sepolia)
     //const did = `did:aa:${serverAccountClient.address}`
     const did = 'did:aa:eip155:11155111:' + serverAccountClient.address
 
@@ -620,7 +921,7 @@ const handleMcpRequest: RequestHandler = async (req, res) => {
     });
 
     const publicClient = createPublicClient({
-      chain: sepolia,
+      chain: chain,
       transport: http(),
     });
     const { data: isValidSignature } = await publicClient.call({
@@ -647,6 +948,11 @@ const handleMcpRequest: RequestHandler = async (req, res) => {
 
   if (type === 'handleSendEOADelegatedDIDCommJWT') {
 
+    if (!process.env.SERVER_PRIVATE_KEY) {
+      res.status(500).json({ error: 'SERVER_PRIVATE_KEY environment variable is not set' });
+      return;
+    }
+
     const serverEOA = await getServerEOASmartAccount(process.env.SERVER_PRIVATE_KEY)
 
     const isDeployed = await serverEOA?.isDeployed()
@@ -655,12 +961,12 @@ const handleMcpRequest: RequestHandler = async (req, res) => {
     if (isDeployed == false) {
       const pimlicoClient = createPimlicoClient({
         transport: http(process.env.BUNDLER_URL),
-        chain: sepolia
+        chain: chain
       });
 
       const bundlerClient = createBundlerClient({
         transport: http(process.env.BUNDLER_URL) as any,
-        chain: sepolia as any,
+        chain: chain,
         paymaster: true,
       }) as any;
 
@@ -685,7 +991,7 @@ const handleMcpRequest: RequestHandler = async (req, res) => {
     console.info("create delegation from EOA AA to other AA")
     const delegation = createDelegation({
       from: serverEOA.address,
-      to: serverAccount.address,
+      to: serverEOA.address,
       caveats: [],
     });
 
@@ -707,26 +1013,26 @@ const handleMcpRequest: RequestHandler = async (req, res) => {
     const eoaBalance = await getBalance(serverEOA.address)
     console.info("EOA client AA balance: ", eoaBalance)
 
-    const serverBalance = await getBalance(serverAccount.address)
+    const serverBalance = await getBalance(serverEOA.address)
     console.info("serverAccount AA balance: ", serverBalance)
 
 
     const pimlicoClient = createPimlicoClient({
       transport: http(process.env.BUNDLER_URL),
-      chain: sepolia
+      chain: chain
     });
     const { fast: fee } = await pimlicoClient.getUserOperationGasPrice();
 
     const bundlerClient = createBundlerClient({
       transport: http(process.env.BUNDLER_URL),
-      chain: sepolia,
+      chain: chain,
       paymaster: true,
     }) as any;
 
 
     const executions = [
       {
-        target: serverAccount.address,
+        target: serverEOA.address,
         value: 1n,
         callData: "0x" as `0x${string}`
       },
@@ -742,10 +1048,10 @@ const handleMcpRequest: RequestHandler = async (req, res) => {
     const key1 = BigInt(Date.now()) 
     const nonce1 = encodeNonce({ key: key1, sequence: 0n })
     const userOperationHash = await bundlerClient.sendUserOperation({
-      account: serverAccount,
+      account: serverEOA,
       calls: [
         {
-          to: serverAccount.address,
+          to: serverEOA.address,
           data,
         },
       ],
@@ -761,7 +1067,7 @@ const handleMcpRequest: RequestHandler = async (req, res) => {
     const eoaBalance2 = await getBalance(serverEOA.address)
     console.info("EOA client AA balance 2: ", eoaBalance2)
 
-    const serverBalance2 = await getBalance(serverAccount.address)
+    const serverBalance2 = await getBalance(serverEOA.address)
     console.info("serverAccount AA balance 2: ", serverBalance2)
 
     res.json({

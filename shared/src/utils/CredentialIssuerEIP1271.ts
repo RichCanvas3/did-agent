@@ -45,7 +45,9 @@ import {
 
 import { TypedDataEncoder,  } from 'ethers'
 import { createPublicClient, http,  encodeFunctionData,  } from "viem";
-import { optimism, mainnet, sepolia } from "viem/chains";
+import { optimism, mainnet, sepolia, linea } from "viem/chains";
+
+const chain = sepolia
 
 import { getEthTypesFromInputDoc } from 'eip-712-types-generation'
 
@@ -318,7 +320,7 @@ export class CredentialIssuerEIP1271 implements IAgentPlugin {
         });
     
     const publicClient = createPublicClient({
-              chain: sepolia,
+              chain: chain,
               transport: http(),
             });
 
@@ -410,7 +412,7 @@ export class CredentialIssuerEIP1271 implements IAgentPlugin {
         });
     
     const publicClient = createPublicClient({
-              chain: sepolia,
+              chain: chain,
               transport: http(),
             });
 
