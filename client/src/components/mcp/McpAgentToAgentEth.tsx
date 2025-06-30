@@ -542,6 +542,141 @@ export const McpAgentToAgentEth: React.FC = () => {
           {loading ? 'Sending...' : 'MCP agent-to-agent request and fund withdrawal.. VP holding VC for dd:aa:eip155:...'}
         </button>
       </div>
+
+      {/* MCP Agent-to-Agent ETH Transfer Flow Description */}
+      <div style={{ 
+        marginTop: '20px', 
+        padding: '20px',
+        backgroundColor: '#f8f9fa',
+        borderRadius: '10px',
+        border: '1px solid #dee2e6'
+      }}>
+        <h3 style={{ margin: '0 0 15px 0', color: '#495057' }}>
+          MCP Agent-to-Agent ETH Transfer Flow
+        </h3>
+        <div style={{ 
+          display: 'grid', 
+          gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', 
+          gap: '15px' 
+        }}>
+          <div style={{ 
+            padding: '15px',
+            backgroundColor: '#e3f2fd',
+            borderRadius: '8px',
+            border: '1px solid #bbdefb'
+          }}>
+            <div style={{ 
+              width: '30px', 
+              height: '30px', 
+              borderRadius: '50%', 
+              backgroundColor: '#1976d2', 
+              color: 'white', 
+              display: 'flex', 
+              alignItems: 'center', 
+              justifyContent: 'center', 
+              fontWeight: 'bold',
+              marginBottom: '10px'
+            }}>
+              1
+            </div>
+            <h4 style={{ margin: '0 0 8px 0', color: '#1565c0' }}>Authentication & Challenge</h4>
+            <p style={{ margin: '0', fontSize: '0.9em', color: '#424242' }}>
+              Request service challenge from MCP server, authenticate with MetaMask, and deploy smart accounts if needed.
+            </p>
+          </div>
+
+          <div style={{ 
+            padding: '15px',
+            backgroundColor: '#f3e5f5',
+            borderRadius: '8px',
+            border: '1px solid #e1bee7'
+          }}>
+            <div style={{ 
+              width: '30px', 
+              height: '30px', 
+              borderRadius: '50%', 
+              backgroundColor: '#7b1fa2', 
+              color: 'white', 
+              display: 'flex', 
+              alignItems: 'center', 
+              justifyContent: 'center', 
+              fontWeight: 'bold',
+              marginBottom: '10px'
+            }}>
+              2
+            </div>
+            <h4 style={{ margin: '0 0 8px 0', color: '#6a1b9a' }}>Payment Delegation</h4>
+            <p style={{ margin: '0', fontSize: '0.9em', color: '#424242' }}>
+              Create delegation with caveats for recurring payments, sign with smart account, and prepare for service request.
+            </p>
+          </div>
+
+          <div style={{ 
+            padding: '15px',
+            backgroundColor: '#e8f5e8',
+            borderRadius: '8px',
+            border: '1px solid #c8e6c9'
+          }}>
+            <div style={{ 
+              width: '30px', 
+              height: '30px', 
+              borderRadius: '50%', 
+              backgroundColor: '#388e3c', 
+              color: 'white', 
+              display: 'flex', 
+              alignItems: 'center', 
+              justifyContent: 'center', 
+              fontWeight: 'bold',
+              marginBottom: '10px'
+            }}>
+              3
+            </div>
+            <h4 style={{ margin: '0 0 8px 0', color: '#2e7d32' }}>Verifiable Credentials</h4>
+            <p style={{ margin: '0', fontSize: '0.9em', color: '#424242' }}>
+              Generate VC with payment delegation, create VP with challenge response, and verify using EIP-1271 signatures.
+            </p>
+          </div>
+
+          <div style={{ 
+            padding: '15px',
+            backgroundColor: '#fff3e0',
+            borderRadius: '8px',
+            border: '1px solid #ffcc02'
+          }}>
+            <div style={{ 
+              width: '30px', 
+              height: '30px', 
+              borderRadius: '50%', 
+              backgroundColor: '#f57c00', 
+              color: 'white', 
+              display: 'flex', 
+              alignItems: 'center', 
+              justifyContent: 'center', 
+              fontWeight: 'bold',
+              marginBottom: '10px'
+            }}>
+              4
+            </div>
+            <h4 style={{ margin: '0 0 8px 0', color: '#ef6c00' }}>Service Request & Payment</h4>
+            <p style={{ margin: '0', fontSize: '0.9em', color: '#424242' }}>
+              Submit service request with VP, execute delegation-based payment, and receive service confirmation.
+            </p>
+          </div>
+        </div>
+        
+        <div style={{ 
+          marginTop: '15px', 
+          padding: '10px',
+          backgroundColor: '#e8eaf6',
+          borderRadius: '5px',
+          border: '1px solid #c5cae9'
+        }}>
+          <strong style={{ color: '#3f51b5' }}>Key Technologies:</strong>
+          <span style={{ fontSize: '0.9em', color: '#424242', marginLeft: '5px' }}>
+            MetaMask Smart Accounts, Delegation Framework, Verifiable Credentials, EIP-1271, MCP Protocol, Pimlico Bundler
+          </span>
+        </div>
+      </div>
       
       <div className="balance-info" style={{ 
         marginTop: '20px', 
@@ -570,9 +705,124 @@ export const McpAgentToAgentEth: React.FC = () => {
       </div>
       
       {response && (
-        <div style={{ marginTop: 20, backgroundColor: 'black', color: 'white', padding: '2px 20px', borderRadius: '10px' }}>
-          <h3>Response:</h3>
-          <pre>{JSON.stringify(response, null, 2)}</pre>
+        <div style={{ 
+          marginTop: '20px', 
+          padding: '20px',
+          backgroundColor: '#e8f5e8',
+          borderRadius: '10px',
+          border: '1px solid #28a745',
+          boxShadow: '0 4px 6px rgba(0,0,0,0.1)'
+        }}>
+          <h3 style={{ margin: '0 0 15px 0', color: '#155724' }}>
+            ETH Transfer Results
+          </h3>
+          
+          {response.error ? (
+            <div style={{ 
+              padding: '15px',
+              backgroundColor: '#f8d7da',
+              borderRadius: '5px',
+              border: '1px solid #f5c6cb',
+              color: '#721c24'
+            }}>
+              <strong>Error:</strong> {response.error}
+            </div>
+          ) : (
+            <div style={{ 
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))',
+              gap: '15px'
+            }}>
+              <div style={{ 
+                padding: '15px',
+                backgroundColor: 'white',
+                borderRadius: '8px',
+                border: '1px solid #d4edda'
+              }}>
+                <h4 style={{ margin: '0 0 10px 0', color: '#155724' }}>Service Information</h4>
+                {response.services && response.services.length > 0 && (
+                  <div>
+                    <div style={{ marginBottom: '8px' }}>
+                      <strong>Service Name:</strong> 
+                      <span style={{ color: '#28a745', marginLeft: '5px' }}>
+                        {response.services[0].name}
+                      </span>
+                    </div>
+                    <div style={{ marginBottom: '8px' }}>
+                      <strong>Location:</strong> 
+                      <span style={{ color: '#6c757d', marginLeft: '5px' }}>
+                        {response.services[0].location}
+                      </span>
+                    </div>
+                    <div style={{ marginBottom: '8px' }}>
+                      <strong>Status:</strong> 
+                      <span style={{ color: '#28a745', fontWeight: 'bold', marginLeft: '5px' }}>
+                        {response.services[0].confirmation}
+                      </span>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <div style={{ 
+                padding: '15px',
+                backgroundColor: 'white',
+                borderRadius: '8px',
+                border: '1px solid #d4edda'
+              }}>
+                <h4 style={{ margin: '0 0 10px 0', color: '#155724' }}>Transaction Details</h4>
+                <div style={{ marginBottom: '8px' }}>
+                  <strong>Type:</strong> 
+                  <span style={{ color: '#6c757d', marginLeft: '5px' }}>
+                    MCP Agent-to-Agent ETH Transfer
+                  </span>
+                </div>
+                <div style={{ marginBottom: '8px' }}>
+                  <strong>Chain:</strong> 
+                  <span style={{ color: '#6c757d', marginLeft: '5px' }}>
+                    Sepolia Testnet
+                  </span>
+                </div>
+                <div style={{ marginBottom: '8px' }}>
+                  <strong>Payment Method:</strong> 
+                  <span style={{ color: '#6c757d', marginLeft: '5px' }}>
+                    Delegation Framework
+                  </span>
+                </div>
+                <div style={{ marginBottom: '8px' }}>
+                  <strong>Authentication:</strong> 
+                  <span style={{ color: '#6c757d', marginLeft: '5px' }}>
+                    EIP-1271 Smart Account
+                  </span>
+                </div>
+              </div>
+            </div>
+          )}
+
+          <div style={{ 
+            marginTop: '15px', 
+            padding: '10px',
+            backgroundColor: '#f8f9fa',
+            borderRadius: '5px',
+            border: '1px solid #e9ecef'
+          }}>
+            <details>
+              <summary style={{ cursor: 'pointer', fontWeight: 'bold', color: '#6c757d' }}>
+                View Raw Response Data
+              </summary>
+              <pre style={{ 
+                marginTop: '10px', 
+                padding: '10px',
+                backgroundColor: '#f8f9fa',
+                borderRadius: '4px',
+                fontSize: '0.8em',
+                overflow: 'auto',
+                maxHeight: '200px'
+              }}>
+                {JSON.stringify(response, null, 2)}
+              </pre>
+            </details>
+          </div>
         </div>
       )}
     </div>

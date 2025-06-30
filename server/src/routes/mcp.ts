@@ -46,7 +46,7 @@ import type {
 const mcpRoutes: express.Router = express.Router()
 const provider = new ethers.JsonRpcProvider(process.env.RPC_URL);
 
-const defaultChain = baseSepolia
+const defaultChain = sepolia
 const defaultServiceCrossChainChain = baseSepolia
 
 export type AADidParts = {
@@ -567,7 +567,7 @@ const handleMcpRequest: RequestHandler = async (req, res) => {
 
           // get gator client AA balance
           const gatorClientBalance = await getBalance(parseAADid(clientSmartAccountDid).address)
-          console.info("gator client AA balance: ", gatorClientBalance)
+          console.info("gator client AA balance 1: ", gatorClientBalance)
 
 
 
@@ -700,7 +700,7 @@ const handleMcpRequest: RequestHandler = async (req, res) => {
 
           // get gator client AA balance
           const gatorClientBalance = await getBalance(parseAADid(clientSmartAccountDid).address)
-          console.info("gator client AA balance: ", gatorClientBalance)
+          console.info("gator client AA balance 2: ", gatorClientBalance)
 
 
 
