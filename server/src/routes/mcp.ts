@@ -27,7 +27,7 @@ import {
   SINGLE_DEFAULT_MODE,
   createDelegation,
 } from "@metamask/delegation-toolkit";
-import { sepolia, lineaSepolia } from 'viem/chains';
+import { sepolia, baseSepolia } from 'viem/chains';
 
 import {
   createBundlerClient,
@@ -46,7 +46,7 @@ import type {
 const mcpRoutes: express.Router = express.Router()
 const provider = new ethers.JsonRpcProvider(process.env.RPC_URL);
 
-const chain = sepolia
+const defaultChain = baseSepolia
 
 export type AADidParts = {
   did: string;
@@ -79,7 +79,7 @@ function parseAADid(didUrl: string): AADidParts {
 const getServerEOASmartAccount = async(key: string) : Promise<any> => {
     
   const publicClient = createPublicClient({
-    chain: chain,
+    chain: defaultChain,
     transport: http(),
   });
 
@@ -119,7 +119,7 @@ const getServerEOASmartAccount = async(key: string) : Promise<any> => {
 const getServerAccount = async(key: string, chain: Chain) : Promise<any> => {
     
   const publicClient = createPublicClient({
-    chain: chain,
+    chain: defaultChain,
     transport: http(),
   });
 
@@ -147,7 +147,7 @@ const getServerAccount = async(key: string, chain: Chain) : Promise<any> => {
         [] as bigint[],
         [] as bigint[]
       ] as [owner: `0x${string}`, keyIds: string[], xValues: bigint[], yValues: bigint[]],
-      deploySalt: "0x0000000000000000000000000000000000000000000000000000000000000001",
+      deploySalt: "0x0000000000000000000000000000000000000000000000000000000000000101",
       signatory: { account: serverAccount as any },
   });
 
@@ -276,7 +276,7 @@ export async function verifyJWTEIP1271(jwt: string,
   });
 
   const publicClient = createPublicClient({
-    chain: chain,
+    chain: defaultChain,
     transport: http(),
   });
 
@@ -480,6 +480,8 @@ const mintUSDC = async (
 
       console.info(`Mint Tx: ${receipt.transactionHash}`);
 
+
+
       break;
     } catch (err) {
       if (err instanceof TransactionExecutionError && retries < MAX_RETRIES) {
@@ -509,7 +511,7 @@ const handleMcpRequest: RequestHandler = async (req, res) => {
       res.status(500).json({ error: 'SERVER_PRIVATE_KEY environment variable is not set' });
       return;
     }
-    const serverAccount = await getServerAccount(process.env.SERVER_PRIVATE_KEY, sepolia)
+    const serverAccount = await getServerAccount(process.env.SERVER_PRIVATE_KEY, defaultChain)
     console.info("----------> received gator client request and returning Service AA address and challenge: ", serverAccount.address)
     res.json({
         type: 'Challenge',
@@ -523,8 +525,8 @@ const handleMcpRequest: RequestHandler = async (req, res) => {
       res.status(500).json({ error: 'SERVER_PRIVATE_KEY environment variable is not set' });
       return;
     }
-    const serverAccount = await getServerAccount(process.env.SERVER_PRIVATE_KEY, lineaSepolia)
-    const serverDid = "did:aa:eip155:" + lineaSepolia.id + ":" + serverAccount.address
+    const serverAccount = await getServerAccount(process.env.SERVER_PRIVATE_KEY, defaultChain)
+    const serverDid = "did:aa:eip155:" + defaultChain.id + ":" + serverAccount.address
     console.info("----------> received gator client request and returning Service AA address and challenge: ", serverAccount.address)
     res.json({
         type: 'Challenge',
@@ -542,7 +544,7 @@ const handleMcpRequest: RequestHandler = async (req, res) => {
         res.status(500).json({ error: 'SERVER_PRIVATE_KEY environment variable is not set' });
         return;
       }
-      const serverAccount = await getServerAccount(process.env.SERVER_PRIVATE_KEY, sepolia)
+      const serverAccount = await getServerAccount(process.env.SERVER_PRIVATE_KEY, defaultChain)
       const clientSmartAccountDid = sanitizeHtml(payload.presentation.holder as string)
 
       console.info("gator client AA DID: ", clientSmartAccountDid)
@@ -584,13 +586,13 @@ const handleMcpRequest: RequestHandler = async (req, res) => {
 
           const pimlicoClient = createPimlicoClient({
             transport: http(process.env.BUNDLER_URL),
-            chain: chain
+            chain: defaultChain
           });
           const { fast: fee } = await pimlicoClient.getUserOperationGasPrice();
 
           const bundlerClient = createBundlerClient({
             transport: http(process.env.BUNDLER_URL),
-            chain: chain,
+            chain: defaultChain,
             paymaster: true,
           }) as any;
 
@@ -729,8 +731,8 @@ const handleMcpRequest: RequestHandler = async (req, res) => {
       return;
     }
 
-    const serviceAddress = await getServerAccount(process.env.SERVER_PRIVATE_KEY, lineaSepolia)
-    const serviceChainId = lineaSepolia.id
+    const serviceAddress = await getServerAccount(process.env.SERVER_PRIVATE_KEY, defaultChain)
+    const serviceChainId = defaultChain.id
 
     const { chainId: sourceChainId, address: sourceAddress } = extractFromAccountDid(clientDid) || {};
 
@@ -745,6 +747,13 @@ const handleMcpRequest: RequestHandler = async (req, res) => {
 
     console.info("***********  mint USDC attestation ****************", attestation);
     await mintUSDC(serviceAddress, serviceChainId, attestation);
+
+    res.json({
+      type: 'ProcessPayment',
+      services: [
+        { name: 'Gator Lawn Service', location: 'Erie', confirmation: "payment processed" }
+      ],
+    })
   }
 
   if (type === 'SendWebDIDJWT') {
@@ -877,7 +886,7 @@ const handleMcpRequest: RequestHandler = async (req, res) => {
   if (type === 'SendAADIDJWT' && process.env.SERVER_PRIVATE_KEY) {
 
     const owner : `0x${string}` = "0x0000000000000000000000000000000000000000"
-    const serverAccountClient = await getServerAccount(process.env.SERVER_PRIVATE_KEY, sepolia)
+    const serverAccountClient = await getServerAccount(process.env.SERVER_PRIVATE_KEY, defaultChain)
     //const did = `did:aa:${serverAccountClient.address}`
     const did = 'did:aa:eip155:11155111:' + serverAccountClient.address
 
@@ -921,7 +930,7 @@ const handleMcpRequest: RequestHandler = async (req, res) => {
     });
 
     const publicClient = createPublicClient({
-      chain: chain,
+      chain: defaultChain,
       transport: http(),
     });
     const { data: isValidSignature } = await publicClient.call({
@@ -961,12 +970,12 @@ const handleMcpRequest: RequestHandler = async (req, res) => {
     if (isDeployed == false) {
       const pimlicoClient = createPimlicoClient({
         transport: http(process.env.BUNDLER_URL),
-        chain: chain
+        chain: defaultChain
       });
 
       const bundlerClient = createBundlerClient({
         transport: http(process.env.BUNDLER_URL) as any,
-        chain: chain,
+        chain: defaultChain,
         paymaster: true,
       }) as any;
 
@@ -1019,13 +1028,13 @@ const handleMcpRequest: RequestHandler = async (req, res) => {
 
     const pimlicoClient = createPimlicoClient({
       transport: http(process.env.BUNDLER_URL),
-      chain: chain
+      chain: defaultChain
     });
     const { fast: fee } = await pimlicoClient.getUserOperationGasPrice();
 
     const bundlerClient = createBundlerClient({
       transport: http(process.env.BUNDLER_URL),
-      chain: chain,
+      chain: defaultChain,
       paymaster: true,
     }) as any;
 

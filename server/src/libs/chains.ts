@@ -111,7 +111,7 @@ import {
     [SupportedChainId.WORLDCHAIN_MAINNET]: "",
     [SupportedChainId.ETH_SEPOLIA]: process.env.SEPOLIA_BUNDLER_URL ?? "",
     [SupportedChainId.AVAX_FUJI]: "",
-    [SupportedChainId.BASE_SEPOLIA]: "",
+    [SupportedChainId.BASE_SEPOLIA]: process.env.BASE_SEPOLIA_BUNDLER_URL ?? "",
     [SupportedChainId.SONIC_BLAZE]: "",
     [SupportedChainId.LINEA_SEPOLIA]: process.env.LINEA_SEPOLIA_BUNDLER_URL ?? "",
     [SupportedChainId.ARBITRUM_SEPOLIA]: "",
