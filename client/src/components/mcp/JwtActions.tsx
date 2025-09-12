@@ -236,7 +236,7 @@ const getServerAccount = async(key: string) : Promise<any> => {
   };
 
   const handleSendAgentDIDJWT = async () => {
-    setLoading('aa');
+    setLoading('agent');
     setResponse(null);
     try {
 
@@ -280,11 +280,11 @@ const getServerAccount = async(key: string) : Promise<any> => {
         }),
       });
       const challengeData: any = await challengeResult.json();
-      setResponse({ type: 'aa', data: challengeData });
+      setResponse({ type: 'agent', data: challengeData });
     } catch (err) {
       console.error(err)
       const message = (err as any)?.message || String(err)
-      setResponse({ type: 'aa', error: `Request failed: ${message}` });
+      setResponse({ type: 'agent', error: `Request failed: ${message}` });
     } finally {
       setLoading(null);
     }

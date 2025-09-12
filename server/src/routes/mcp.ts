@@ -273,9 +273,61 @@ export async function verifyAgentJWTEIP1271(jwt: string,
 
   }
   
-  // 1.b From agentId get associated smart account address
+  // 1.b From agentId get associated smart account address via ERC-8004 Identity Registry
+  try {
+    if (!agentId) {
+      throw new Error('agentId not found in DID');
+    }
+    const registryAddress = (process.env.NEXT_PUBLIC_REGISTRY_ADDRESS || process.env.REGISTRY_ADDRESS) as `0x${string}`;
+    if (!registryAddress) {
+      throw new Error('Identity Registry address not configured (NEXT_PUBLIC_REGISTRY_ADDRESS or REGISTRY_ADDRESS)');
+    }
 
+    const identityRegistryAbi = [
+      {
+        type: "function",
+        name: "getAgent",
+        stateMutability: "view",
+        inputs: [{ name: "agentId", type: "uint256" }],
+        outputs: [
+          {
+            name: "agentInfo",
+            type: "tuple",
+            components: [
+              { name: "agentId", type: "uint256" },
+              { name: "agentDomain", type: "string" },
+              { name: "agentAddress", type: "address" }
+            ]
+          }
+        ]
+      }
+    ] as const;
 
+    const registryClient = createPublicClient({
+      chain: defaultChain,
+      transport: http(),
+    });
+
+    const agentIdBig = (() => {
+      const idStr = String(agentId);
+      return idStr.startsWith('0x') ? BigInt(idStr) : BigInt(idStr);
+    })();
+
+    const res: any = await registryClient.readContract({
+      address: registryAddress,
+      abi: identityRegistryAbi,
+      functionName: 'getAgent',
+      args: [agentIdBig],
+    });
+
+    smartAccountAddress = res?.agentAddress as `0x${string}`;
+    if (!smartAccountAddress) {
+      throw new Error('Registry did not return an agentAddress for provided agentId');
+    }
+    console.info('Resolved agent address from registry:', smartAccountAddress);
+  } catch (e) {
+    console.warn('Agent resolution warning:', e instanceof Error ? e.message : String(e));
+  }
 
   // 2. Hash the data to match EIP-1271 spec
   const digest = hashMessage(data as `0x${string}`);
@@ -932,14 +984,14 @@ const handleMcpRequest: RequestHandler = async (req, res) => {
       if (issuerDid) {
         try {
           const result = await agent.resolveDid({ didUrl: issuerDid })
-          console.info("aa did resolver result: ", result)
+          console.info("agent did resolver result: ", result)
         } catch (e) {
           console.warn('DID resolve warning:', e)
         }
       }
 
       res.json({
-        type: 'SendAADidConfirmation',
+        type: 'SendAgentDidConfirmation',
         issuerDid,
         claims,
       })

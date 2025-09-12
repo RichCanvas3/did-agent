@@ -39,13 +39,14 @@ export type CredentialStatus = { revoked: boolean };
 import type { IKey, TKeyType, IDIDManager, ICredentialIssuer, ICredentialVerifier,  IResolver, IDataStore, IKeyManager, VerifiableCredential, IVerifyResult } from '@veramo/core';
 
 
-const didProviders: Record<string, AADidProvider> = {
+const aaDidProviders: Record<string, AADidProvider> = {
+}
+const agentDidProviders: Record<string, AgentDidProvider> = {
 }
 
 
-
-const aaKMS = new AAKeyManagementSystem(didProviders)
-const agentKMS = new AgentKeyManagementSystem(didProviders)
+const aaKMS = new AAKeyManagementSystem(aaDidProviders)
+const agentKMS = new AgentKeyManagementSystem(agentDidProviders)
 
 export const resolver = new Resolver({
   ...agentDidResolver(),
@@ -85,7 +86,7 @@ export const agent: Agent = createAgent({
       new DIDManager({
         store: new MemoryDIDStore(),
         defaultProvider: 'did:agent:client',
-        providers: didProviders,
+        providers: agentDidProviders,
       }),
       new DIDResolverPlugin({
         resolver: resolver,
