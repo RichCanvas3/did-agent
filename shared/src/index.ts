@@ -5,7 +5,8 @@ export interface MCPMessage {
 }
 
 export * from './utils/ICredentialEIP1271.js';
-export * from './utils/CredentialIssuerEIP1271.js';
+export * from './utils/AACredentialIssuerEIP1271.js';
+export * from './utils/AgentCredentialIssuerEIP1271.js';
 
 export * from './utils/AATypes.js';
 export * from './utils/AAKmsSigner.js';

@@ -27,17 +27,20 @@ import {
   getAgentResolver as agentDidResolver, 
   AAKeyManagementSystem, 
   AgentKeyManagementSystem, 
-  CredentialIssuerEIP1271, 
+  AACredentialIssuerEIP1271, 
+  AgentCredentialIssuerEIP1271,
   AADidProvider,
   AgentDidProvider } from '@mcp/shared';
 
 
 
 
-const didProviders: Record<string, AADidProvider> = {
+const aaDidProviders: Record<string, AADidProvider> = {
 }
-const aaKMS = new AAKeyManagementSystem(didProviders)
-//const agentKMS = new AgentKeyManagementSystem(didProviders)
+const agentDidProviders: Record<string, AgentDidProvider> = {
+}
+const aaKMS = new AAKeyManagementSystem(aaDidProviders)
+const agentKMS = new AgentKeyManagementSystem(agentDidProviders)
 
 console.info("SEPOLIA_RPC_URL: ", import.meta.env.VITE_SEPOLIA_RPC_URL )
 console.info("ETHEREUM_RPC_URL: ", import.meta.env.VITE_ETHERUM_RPC_URL)
@@ -46,17 +49,18 @@ console.info("LINEA_RPC_URL: ", import.meta.env.VITE_LINEA_RPC_URL)
 export type Agent = TAgent<ICredentialVerifier & IDIDManager & IKeyManager & IResolver>
 export const agent: Agent = createAgent({
   plugins: [
-    new CredentialIssuerEIP1271(),
+    new AgentCredentialIssuerEIP1271(),
     new KeyManager({
       store: new MemoryKeyStore(),
       kms: {
         aa: aaKMS,
+        agent: agentKMS,
       },
     }),
     new DIDManager({
       store: new MemoryDIDStore(),
-      defaultProvider: 'did:aa:client',
-      providers: didProviders,
+      defaultProvider: 'did:agent:client',
+      providers: agentDidProviders,
     }),
     new DIDResolverPlugin({
       resolver: new Resolver({

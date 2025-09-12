@@ -19,7 +19,7 @@ import {
   MemoryDIDStore,
 } from '@veramo/did-manager';
 
-import { CredentialIssuerEIP1271 } from '@mcp/shared';
+import { AgentCredentialIssuerEIP1271 } from '@mcp/shared';
 
 import { AAKeyManagementSystem } from  '@mcp/shared';
 import { AADidProvider } from '@mcp/shared'; 
@@ -75,7 +75,7 @@ export type Agent = TAgent<ICredentialVerifier & IDIDManager & IKeyManager & IRe
 export const agent: Agent = createAgent({
     plugins: [
       //new CredentialPlugin(),
-      new CredentialIssuerEIP1271(),
+      new AgentCredentialIssuerEIP1271(),
       new KeyManager({
         store: new MemoryKeyStore(),
         kms: {

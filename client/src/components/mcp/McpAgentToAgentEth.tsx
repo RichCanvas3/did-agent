@@ -5,7 +5,7 @@ import { toMetaMaskSmartAccount, Implementation, createCaveatBuilder, createDele
 import { createPimlicoClient } from 'permissionless/clients/pimlico';
 import { createBundlerClient } from 'viem/account-abstraction';
 import { agent } from '../../agents/veramoAgent';
-import { AAKmsSigner } from '@mcp/shared';
+import { AgentKmsSigner } from '@mcp/shared';
 import { type TypedDataDomain, type TypedDataField } from 'ethers';
 import { ethers } from 'ethers';
 
@@ -282,9 +282,12 @@ export const McpAgentToAgentEth: React.FC = () => {
       }
 
       const clientSubscriberSmartAddress = clientSubscriptionAccountClient.address.toLowerCase()
-      const clientSubscriberDid = "did:aa:eip155:" + chain.id + ":" + clientSubscriberSmartAddress.toLowerCase()
-      console.info("client subscriber smart account address : ", clientSubscriberSmartAddress)
-      console.info("client subscriber did: ", clientSubscriberDid)
+      //const clientSubscriberDid = "did:aa:eip155:" + chain.id + ":" + clientSubscriberSmartAddress.toLowerCase()
+      //console.info("client subscriber smart account address : ", clientSubscriberSmartAddress)
+      //console.info("client subscriber did: ", clientSubscriberDid)
+
+      const agentId = "13"
+      const clientSubscriberDid = "did:agent:eip155:" + chain.id + ":" + agentId
 
       // get balance for client subscriber smart account
       const aaBalance = await getBalance(clientSubscriberSmartAddress)
@@ -391,14 +394,14 @@ export const McpAgentToAgentEth: React.FC = () => {
       // add did and key to our agent
       await agent.didManagerImport({
         did: clientSubscriberDid,
-        provider: 'did:aa:client',
+        provider: 'did:agent:client',
         alias: 'subscriber-smart-account',
         keys:[]
       })
 
       await agent.keyManagerImport({
-        kms: 'aa',
-        kid: 'aa-' + clientSubscriberSmartAddress,
+        kms: 'agent',
+        kid: 'agent-' + agentId,
         type: 'Secp256k1',
         publicKeyHex: '0x',
         privateKeyHex: '0x'
@@ -408,7 +411,7 @@ export const McpAgentToAgentEth: React.FC = () => {
       console.info("clientSubscriberDid did identifier: ", identifier)
 
       // construct the verifiable credential and presentation for service request and payment delegation
-      const signerAAVC: AAKmsSigner = {
+      const signerAgentVC: AgentKmsSigner = {
           async signTypedData(
             domain: TypedDataDomain,
             types: Record<string, Array<TypedDataField>>,
@@ -439,7 +442,7 @@ export const McpAgentToAgentEth: React.FC = () => {
           },
       };
 
-      const vcAA = await agent.createVerifiableCredentialEIP1271({
+      const vcAgent = await agent.createVerifiableCredentialEIP1271({
         credential: {
           issuer: { id: clientSubscriberDid },
           issuanceDate: new Date().toISOString(),
@@ -450,16 +453,16 @@ export const McpAgentToAgentEth: React.FC = () => {
           },
           '@context': ['https://www.w3.org/2018/credentials/v1'],
         },
-        signer: signerAAVC
+        signer: signerAgentVC
       })
 
-      console.info("service request and payment delegation verifiable credential: ", vcAA)
+      console.info("service request and payment delegation verifiable credential: ", vcAgent)
 
       // demonstrate verification of the verifiable credential
-      const vcVerified = await agent.verifyCredentialEIP1271({ credential: vcAA, });
+      const vcVerified = await agent.verifyCredentialEIP1271({ credential: vcAgent, });
       console.info("verify VC: ", vcVerified)
 
-      const signerAAVP: AAKmsSigner = {
+      const signerAgentVP: AgentKmsSigner = {
           async signTypedData(
               domain: TypedDataDomain,
               types: Record<string, Array<TypedDataField>>,
@@ -490,21 +493,21 @@ export const McpAgentToAgentEth: React.FC = () => {
           },
       };
       
-      const vpAA = await agent.createVerifiablePresentationEIP1271(
+      const vpAgent = await agent.createVerifiablePresentationEIP1271(
           {
               presentation: {
                   holder: clientSubscriberDid,
-                  verifiableCredential: [vcAA],
+                  verifiableCredential: [vcAgent],
               },
               proofFormat: 'EthereumEip712Signature2021',
               challenge: challengeData.challenge,
-              signer: signerAAVP
+              signer: signerAgentVP
           }
       );
-      console.info("verifiable presentation: ", vpAA)
+      console.info("verifiable presentation: ", vpAgent)
 
       // demonstrate verification of the verifiable presentation
-      const vpVerified = await agent.verifyPresentationEIP1271({ presentation: vpAA, });
+      const vpVerified = await agent.verifyPresentationEIP1271({ presentation: vpAgent, });
       console.info("verify VP 2: ", vpVerified)
 
       const res = await fetch('http://localhost:3001/mcp', {
@@ -516,7 +519,7 @@ export const McpAgentToAgentEth: React.FC = () => {
         payload: {
             location: 'Erie, CO',
             service: 'Lawn Care',
-            presentation: vpAA
+            presentation: vpAgent
         },
         }),
       });

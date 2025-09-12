@@ -65,7 +65,7 @@ function parseAADid(didUrl: string): AADidParts {
   const parts = baseDid.split(":");
 
   if (parts.length !== 5 || parts[0] !== "did" || parts[1] !== "aa") {
-    throw new Error(`Invalid did:aa format: ${didUrl}`);
+    throw new Error(`Invalid did:aa format 1: ${didUrl}`);
   }
 
   const [, method, namespace, chainId, address] = parts;
@@ -654,7 +654,7 @@ const handleMcpRequest: RequestHandler = async (req, res) => {
       const serverAccount = await getServerAccount(process.env.SERVER_PRIVATE_KEY, defaultChain)
       const clientSmartAccountDid = sanitizeHtml(payload.presentation.holder as string)
 
-      console.info("gator client AA DID: ", clientSmartAccountDid)
+      console.info("gator client Agent DID: ", clientSmartAccountDid)
 
       const presentation = payload.presentation
 
@@ -787,7 +787,7 @@ const handleMcpRequest: RequestHandler = async (req, res) => {
 
       const clientSmartAccountDid = sanitizeHtml(payload.presentation.holder as string)
 
-      console.info("gator client AA DID: ", clientSmartAccountDid)
+      console.info("gator client Agent DID: ", clientSmartAccountDid)
 
       const presentation = payload.presentation
 

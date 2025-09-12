@@ -35,7 +35,6 @@ import {
   intersect,
   isDefined,
   MANDATORY_CREDENTIAL_CONTEXT,
-  //mapAAIdentifierKeysToDoc,
   //mapAgentIdentifierKeysToDoc,
   processEntryToArray,
   removeDIDParameters,
@@ -52,16 +51,16 @@ const chain = sepolia
 
 import { getEthTypesFromInputDoc } from 'eip-712-types-generation'
 
-export type AADidParts = {
+export type AgentDidParts = {
     did: string;
     method: string;
     namespace: string;
     chainId: string;
-    address: string;
+    agentId: string;
     fragment?: string;
   };
 
-export class CredentialIssuerEIP1271 implements IAgentPlugin {
+export class AgentCredentialIssuerEIP1271 implements IAgentPlugin {
   readonly methods: ICredentialIssuerEIP1271
 
   constructor() {
@@ -79,22 +78,22 @@ export class CredentialIssuerEIP1271 implements IAgentPlugin {
 
 
 
-  parseAADid(didUrl: string): AADidParts {
+  parseAgentDid(didUrl: string): AgentDidParts {
       const [baseDid, fragment] = didUrl.split("#");
       const parts = baseDid.split(":");
 
-      if (parts.length !== 5 || parts[0] !== "did" || parts[1] !== "aa") {
-        throw new Error(`Invalid did:aa format: ${didUrl}`);
+      if (parts.length !== 5 || parts[0] !== "did" || parts[1] !== "agent") {
+        throw new Error(`Invalid did:agent format: ${didUrl}`);
       }
 
-      const [, method, namespace, chainId, address] = parts;
+      const [, method, namespace, chainId, agentId] = parts;
 
       return {
         did: baseDid,
         method,
         namespace,
         chainId,
-        address,
+        agentId,
         fragment,
       };
     }
@@ -126,11 +125,11 @@ export class CredentialIssuerEIP1271 implements IAgentPlugin {
     console.info("Creating Verifiable Credential EIP1271 with issuer:", issuer)
     const identifier = await context.agent.didManagerGet({ did: issuer.id })
 
-    const aaDidParts = this.parseAADid(identifier.did);
+    const agentDidParts = this.parseAgentDid(identifier.did);
 
     let chainId
     try {
-      chainId = aaDidParts.chainId
+      chainId = agentDidParts.chainId
     } catch (e) {
       chainId = 11155111
     }
@@ -227,11 +226,11 @@ export class CredentialIssuerEIP1271 implements IAgentPlugin {
 
     console.info("identifier: ", identifier)
 
-    const aaDidParts = this.parseAADid(identifier.did);
+    const agentDidParts = this.parseAgentDid(identifier.did);
 
     let chainId
     try {
-      chainId = aaDidParts.chainId
+      chainId = agentDidParts.chainId
     } catch (e) {
       chainId = 11155111
     }
@@ -239,7 +238,7 @@ export class CredentialIssuerEIP1271 implements IAgentPlugin {
 
 
     presentation['proof'] = {
-      verificationMethod: aaDidParts.address + "#ethereumAddress",
+      verificationMethod: agentDidParts.agentId + "#agentId",
       created: issuanceDate,
       proofPurpose: 'assertionMethod',
       type: 'EthereumEip712Signature2021',
@@ -329,8 +328,11 @@ export class CredentialIssuerEIP1271 implements IAgentPlugin {
     const did = (credential.issuer as any).id
     console.info(">>>>>>>>>>>> credential issuer did: ", did)
     
-    const address = this.parseAADid(did as `0x${string}`).address;
-    console.info("address used to validate signature: ", address)
+    const agentId = this.parseAgentDid(did as `${string}`).agentId;
+    console.info("agentId used to validate signature: ", agentId)
+
+    console.info("XXXXXXXXXXXXXXXXXXXXXX  need to get address from agentId 1")
+    const address = "0x0000000000000000000000000000000000000000"
 
     // validate signature using contract EIP-1271
     const { data: isValidSignature } = await publicClient.call({
@@ -352,10 +354,10 @@ export class CredentialIssuerEIP1271 implements IAgentPlugin {
       throw new Error('invalid_argument: credential.issuer must not be empty')
     }
 
-    const aa = await context.agent.resolveDid({ didUrl: issuer, options: args.resolutionOptions })
+    const agent = await context.agent.resolveDid({ didUrl: issuer, options: args.resolutionOptions })
     const didDocument = await resolveDidOrThrow(issuer, context, args.resolutionOptions)
 
-    if (didDocument.verificationMethod && address) {
+    if (didDocument.verificationMethod && agentId) {
       for (const verificationMethod of didDocument.verificationMethod) {
         const ethAddress = getEthereumAddress(verificationMethod)?.toLowerCase()
         if (ethAddress === address.toLowerCase()) {
@@ -419,13 +421,16 @@ export class CredentialIssuerEIP1271 implements IAgentPlugin {
 
 
 
-    const clientAddress = this.parseAADid(presentation.holder).address;
+    const agentId = this.parseAgentDid(presentation.holder).agentId;
+
+        console.info("XXXXXXXXXXXXXXXXXXXXXX  need to get address from agentId 2")
+    const address = "0x0000000000000000000000000000000000000000"
 
     // validate signature using contract EIP-1271
     const { data: isValidSignature } = await publicClient.call({
-        account: clientAddress as `0x${string}`,
+        account: address as `0x${string}`,
         data: isValidSignatureData,
-        to: clientAddress as `0x${string}`,
+        to: address as `0x${string}`,
     });
 
     if (!isValidSignature?.startsWith('0x1626ba7e')) {
@@ -440,18 +445,23 @@ export class CredentialIssuerEIP1271 implements IAgentPlugin {
       throw new Error('invalid_argument: presentation.holder must not be empty')
     }
 
-    console.info("gator client AA Did: ", clientDid)
+    console.info("gator client Agent Did: ", clientDid)
     const clientDidDocument = await resolveDidOrThrow(clientDid, context, args.resolutionOptions)
 
-    if (clientDidDocument.verificationMethod && clientAddress) {
+    
+    
+    if (clientDidDocument.verificationMethod && agentId) {
       console.info("gator client didDocument.verificationMethod: ", clientDidDocument.verificationMethod)
       for (const verificationMethod of clientDidDocument.verificationMethod) {
         console.info("verificationMethod: ", verificationMethod)
-        const ethAddress = getEthereumAddress(verificationMethod)?.toLowerCase()
-        console.info("ethAddress: ", ethAddress)
-        if (getEthereumAddress(verificationMethod)?.toLowerCase() === clientAddress.toLowerCase()) {
-          return true
-        }
+
+        console.info("XXXXXXXXXXXXXXXXXXXXXX  need to get address from agentId 3")
+        //const ethAddress = getEthereumAddress(verificationMethod)?.toLowerCase()
+        //console.info("ethAddress: ", ethAddress)
+        //if (getEthereumAddress(verificationMethod)?.toLowerCase() === clientAddress.toLowerCase()) {
+        //  return true
+        //}
+        return true
       }
     } else {
       throw new Error('resolver_error: holder DIDDocument does not contain any verificationMethods')
