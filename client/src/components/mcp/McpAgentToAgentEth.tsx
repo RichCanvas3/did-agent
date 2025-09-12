@@ -16,6 +16,7 @@ export const McpAgentToAgentEth: React.FC = () => {
   const [aaWalletAddress, setAaWalletAddress] = useState('');
   const [eoaBalance, setEoaBalance] = useState('');
   const [aaBalance, setAaBalance] = useState('');
+  const [clientDid, setClientDid] = useState('');
   const chain = sepolia;
 
   const provider = (window as any).ethereum;
@@ -288,6 +289,7 @@ export const McpAgentToAgentEth: React.FC = () => {
 
       const agentId = "13"
       const clientSubscriberDid = "did:agent:eip155:" + chain.id + ":" + agentId
+      setClientDid(clientSubscriberDid)
 
       // get balance for client subscriber smart account
       const aaBalance = await getBalance(clientSubscriberSmartAddress)
@@ -778,6 +780,12 @@ export const McpAgentToAgentEth: React.FC = () => {
                   <strong>Type:</strong> 
                   <span style={{ color: '#6c757d', marginLeft: '5px' }}>
                     MCP Agent-to-Agent ETH Transfer
+                  </span>
+                </div>
+                <div style={{ marginBottom: '8px' }}>
+                  <strong>Client DID:</strong> 
+                  <span style={{ color: '#6c757d', marginLeft: '5px' }}>
+                    {clientDid || 'Not available'}
                   </span>
                 </div>
                 <div style={{ marginBottom: '8px' }}>

@@ -19,9 +19,7 @@ const Header: React.FC = () => {
           <a className='main-nav-link' href="/eth">
             <li className='main-nav-li'> ETH Transfer </li>
           </a>
-          <a className='main-nav-link' href="/usdc">
-            <li className='main-nav-li'> USDC Transfer </li>
-          </a>
+
 
           
 
