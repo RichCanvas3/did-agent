@@ -606,21 +606,6 @@ export const SendMcpMessage: React.FC<SendMcpMessageProps> = ({ onAAWalletDeploy
       console.info("........ challengeResult: ", challengeData)
   }
 
-  const handleSendEOADelegatedDIDCommJWT = async () => {
-
-    const challengeResult : any = await fetch('http://localhost:3001/mcp', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-        type: 'handleSendEOADelegatedDIDCommJWT',
-        payload: {
-            action: 'ServiceSubscriptionRequest'
-        },
-        }),
-    });
-    const challengeData : any = await challengeResult.json()
-    console.info("........ challengeResult: ", challengeData)
-  }
 
 
   const extractFromAccountDid = (accountDid: string): { chainId: number; address: `0x${string}` } | null => {
@@ -1842,12 +1827,7 @@ export const SendMcpMessage: React.FC<SendMcpMessageProps> = ({ onAAWalletDeploy
       </button>
       </div>
       <br></br>
-      <div>
-      <button onClick={handleSendEOADelegatedDIDCommJWT} >
-        {loading ? 'Sending...' : 'Send Delegated DIDComm JWT'}
-      </button>
-      </div>
-      <br></br>
+
       <div>
       <button onClick={handleMetamaskCardEOAWithdrawRecipients} disabled={metamaskCardLoading}>
         {metamaskCardLoading ? 'Analyzing MetaMask Card...' : 'Check for MetaMask Card and Withdrawals'}

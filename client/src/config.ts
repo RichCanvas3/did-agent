@@ -41,3 +41,7 @@ export const BASE_SEPOLIA_BUNDLER_URL: string = import.meta.env.VITE_BASE_SEPOLI
 export const CIRCLE_API_KEY: string = import.meta.env.VITE_CIRCLE_API_KEY;
 export const CIRCLE_WALLET_API_KEY: string = import.meta.env.VITE_CIRCLE_WALLET_API_KEY;
 export const CIRCLE_WALLET_ENTITY_SECRET: string = import.meta.env.VITE_CIRCLE_WALLET_ENTITY_SECRET;
+
+export const WEBDID_KEY=import.meta.env.VITE_WEBDID_KEY
+export const ETHRDID_KEY=import.meta.env.VITE_ETHRDID_KEY
+export const EOA_KEY=import.meta.env.VITE_EOA_KEY

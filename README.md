@@ -8,9 +8,6 @@
 - **Agent Interoperability**  
   Enables subject and issuer identification for Verifiable Credential (VC) and Verifiable Presentation (VP) communications between agents.
 
-- **DIDComm-based Agent Interactions**  
-  Supports DIDComm messaging across Model Context Protocol (MCP) agents.
-
 - **Multi-Signer Management**  
   Enables organizations to distribute DID control across multiple authorized signers, with configurable thresholds and permissions for different operations.
 
