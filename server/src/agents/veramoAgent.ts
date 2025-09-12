@@ -19,11 +19,16 @@ import {
   MemoryDIDStore,
 } from '@veramo/did-manager';
 
-import { AAKeyManagementSystem } from  '@mcp/shared';
 import { CredentialIssuerEIP1271 } from '@mcp/shared';
+
+import { AAKeyManagementSystem } from  '@mcp/shared';
 import { AADidProvider } from '@mcp/shared'; 
 
-import { getResolver as aaDidResolver } from '@mcp/shared';
+import { AgentKeyManagementSystem } from  '@mcp/shared';
+import { AgentDidProvider } from '@mcp/shared'; 
+
+import { getAgentResolver as agentDidResolver } from '@mcp/shared';
+import { getAAResolver as aaDidResolver } from '@mcp/shared';
 import { getResolver as webDidResolver } from 'web-did-resolver'
 import { getResolver as ethrDidResolver } from 'ethr-did-resolver'
 
@@ -37,9 +42,13 @@ import type { IKey, TKeyType, IDIDManager, ICredentialIssuer, ICredentialVerifie
 const didProviders: Record<string, AADidProvider> = {
 }
 
+
+
 const aaKMS = new AAKeyManagementSystem(didProviders)
+const agentKMS = new AgentKeyManagementSystem(didProviders)
 
 export const resolver = new Resolver({
+  ...agentDidResolver(),
   ...aaDidResolver(),
   ...webDidResolver(),
   ...ethrDidResolver({
@@ -70,11 +79,12 @@ export const agent: Agent = createAgent({
         store: new MemoryKeyStore(),
         kms: {
           aa: aaKMS,
+          agent: agentKMS,
         },
       }),
       new DIDManager({
         store: new MemoryDIDStore(),
-        defaultProvider: 'did:aa:client',
+        defaultProvider: 'did:agent:client',
         providers: didProviders,
       }),
       new DIDResolverPlugin({

@@ -235,6 +235,61 @@ const getServerAccount = async(key: string) : Promise<any> => {
     }
   };
 
+  const handleSendAgentDIDJWT = async () => {
+    setLoading('aa');
+    setResponse(null);
+    try {
+
+      const accountClient = await getServerAccount(EOA_KEY)
+      const agentId = "13"
+    const did = 'did:agent:eip155:11155111:' + agentId
+
+
+
+      // Adapter: DID-JWT signer wrapper using smart account
+  const signer = async (data: string | Uint8Array) => {
+    const sig = await accountClient.signMessage({ message: data as `0x${string}` });
+    return sig;
+  };
+
+  // Create JWT (valid 10 minutes by default)
+  const jwt = await createJWT(
+    {
+        sub: did,
+        name: 'Alice',
+        iat: Math.floor(Date.now() / 1000),
+        exp: Math.floor(Date.now() / 1000) + 600, // expires in 10 minutes
+    },
+    {
+        alg: 'ES256K',
+        issuer: did,
+        signer,
+    }
+  );
+  
+
+  console.info("jwt: ", jwt)
+
+
+      const challengeResult: any = await fetch('http://localhost:3001/mcp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: 'SendAgentDIDJWT',
+          payload: { action: 'ServiceSubscriptionRequest', jwt: jwt },
+        }),
+      });
+      const challengeData: any = await challengeResult.json();
+      setResponse({ type: 'aa', data: challengeData });
+    } catch (err) {
+      console.error(err)
+      const message = (err as any)?.message || String(err)
+      setResponse({ type: 'aa', error: `Request failed: ${message}` });
+    } finally {
+      setLoading(null);
+    }
+  };
+
   return (
     <div style={{ maxWidth: 600, margin: '0 auto' }}>
       <h2>JWT Actions</h2>
@@ -247,6 +302,9 @@ const getServerAccount = async(key: string) : Promise<any> => {
         </button>
         <button className='service-button' onClick={handleSendAADIDJWT} disabled={loading !== null}>
           {loading === 'aa' ? 'Sending...' : 'Send AA DID JWT'}
+        </button>
+        <button className='service-button' onClick={handleSendAgentDIDJWT} disabled={loading !== null}>
+          {loading === 'agent' ? 'Sending...' : 'Send Agent DID JWT'}
         </button>
 
       </div>

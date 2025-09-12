@@ -23,10 +23,13 @@ export type CredentialStatus = { revoked: boolean };
 import type { IKey, TKeyType, IDIDManager, ICredentialIssuer, ICredentialVerifier, IResolver, IDataStore, IKeyManager, VerifiableCredential, IVerifyResult } from '@veramo/core';
 
 import { 
-  getResolver as aaDidResolver, 
+  getAAResolver as aaDidResolver, 
+  getAgentResolver as agentDidResolver, 
   AAKeyManagementSystem, 
+  AgentKeyManagementSystem, 
   CredentialIssuerEIP1271, 
-  AADidProvider } from '@mcp/shared';
+  AADidProvider,
+  AgentDidProvider } from '@mcp/shared';
 
 
 
@@ -34,6 +37,7 @@ import {
 const didProviders: Record<string, AADidProvider> = {
 }
 const aaKMS = new AAKeyManagementSystem(didProviders)
+//const agentKMS = new AgentKeyManagementSystem(didProviders)
 
 console.info("SEPOLIA_RPC_URL: ", import.meta.env.VITE_SEPOLIA_RPC_URL )
 console.info("ETHEREUM_RPC_URL: ", import.meta.env.VITE_ETHERUM_RPC_URL)
@@ -57,6 +61,7 @@ export const agent: Agent = createAgent({
     new DIDResolverPlugin({
       resolver: new Resolver({
         ...aaDidResolver(),
+        ...agentDidResolver(),
         ...ethrDidResolver({
           networks: [
             {

@@ -13,27 +13,27 @@ import {
 
 import { AbstractIdentifierProvider } from '@veramo/did-manager'
 
-import { type IAAKey } from './AATypes.js'
+import { type IAgentKey } from './AgentTypes.js'
 
-export interface AADidProviderOptions {
+export interface AgentDidProviderOptions {
   defaultKms: string
   chainId: number
-  address: string
+  agentId: string
 }
 
 type IContext = IAgentContext<IKeyManager>
 
-export type ImportOrCreateAAKeyOptions<TKey extends TKeyType = TKeyType> = Omit<
+export type ImportOrCreateAgentKeyOptions<TKey extends TKeyType = TKeyType> = Omit<
   Partial<IKeyManagerCreateArgs & MinimalImportableKey>,
   'kms'
 > & { type: TKey }
 
-export type CreateAAIdentifierBaseOptions<T extends TKeyType = TKeyType> = {
+export type CreateAgentIdentifierBaseOptions<T extends TKeyType = TKeyType> = {
   keyRef?: string;
-  key?: ImportOrCreateAAKeyOptions<T>;
+  key?: ImportOrCreateAgentKeyOptions<T>;
 }
 
-export class AADidProvider extends AbstractIdentifierProvider {
+export class AgentDidProvider extends AbstractIdentifierProvider {
   async addKey(
     args: { identifier: IIdentifier; key: IKey; options?: any },
     context: IAgentContext<IKeyManager>
@@ -45,30 +45,30 @@ export class AADidProvider extends AbstractIdentifierProvider {
 
   private defaultKms: string
   private chainId: number
-  private address: string
+  private agentId: string
 
   private providerName: string
 
-  constructor(options: AADidProviderOptions) {
+  constructor(options: AgentDidProviderOptions) {
     super()
 
     this.defaultKms = options.defaultKms
     this.chainId = options.chainId
-    this.address = options.address
+    this.agentId = options.agentId
 
-    this.providerName = `aa:${this.address}`
+    this.providerName = `agent:${this.agentId}`
 
 
   }
 
   // Returns the DID method name
   getSupportedMethods(): string[] {
-    return [`aa:${this.address}`]
+    return [`agent:${this.agentId}`]
   }
 
 
   getAccount(): string {
-    return this.address
+    return this.agentId
   }
 
 
@@ -80,15 +80,15 @@ export class AADidProvider extends AbstractIdentifierProvider {
     //console.info(`Resolving DID 111: ${did}`)
 
     // provider and did are a one to one relationship
-    const address = this.address
+    const agentId = this.agentId
     const chainId = this.chainId
-    const did = `did:aa:eip155:${chainId}:${address}`
+    const did = `did:agent:eip155:${chainId}:${agentId}`
 
     const identifier: IIdentifier = {
       did,
       alias,
       provider: this.providerName,
-      controllerKeyId: address, // assumes no local private key; signing done externally or on-chain
+      controllerKeyId: agentId, // assumes no local private key; signing done externally or on-chain
       keys: [],
       services: [] as IService[],
     }
@@ -102,13 +102,13 @@ export class AADidProvider extends AbstractIdentifierProvider {
 
     console.info(`Resolving DID 222: ${did}`)
 
-    const [method, networkId, address] = did.split(':').slice(1)
+    const [method, networkId, agentId] = did.split(':').slice(1)
 
     if (method !== 'contract') {
       throw new Error(`Unsupported DID method: ${method}`)
     }
 
-    const controllerAddress = address.toLowerCase()
+    const controllerAddress = agentId.toLowerCase()
 
     return {
       '@context': ['https://www.w3.org/ns/did/v1'],
@@ -118,7 +118,7 @@ export class AADidProvider extends AbstractIdentifierProvider {
           id: `${did}#controller`,
           type: 'EcdsaSecp256k1RecoveryMethod2020',
           controller: did,
-          blockchainAccountId: `${controllerAddress}@eip155:${networkId}`,
+          agentId: `${controllerAddress}@eip155:${networkId}`,
         },
       ],
       authentication: [`${did}#controller`],

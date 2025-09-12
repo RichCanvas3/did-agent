@@ -1,7 +1,7 @@
 import { toUtf8String, SigningKey, computeAddress } from 'ethers'
 import { hexToBytes, bytesToHex } from "viem";
 
-import { AADidProvider } from './AADidProvider.js'
+import { AgentDidProvider } from './AgentDidProvider.js'
 
 import { AbstractKeyManagementSystem, type Eip712Payload } from '@veramo/key-manager'
 import { type DIDDocumentSection, 
@@ -16,7 +16,7 @@ type IKey } from '@veramo/core-types'
 import {
   type _ExtendedIKey,
   isDefined,
-  //mapAAIdentifierKeysToDoc,
+  //mapAgentIdentifierKeysToDoc,
   type _NormalizedVerificationMethod,
   resolveDidOrThrow,
   dereferenceDidKeys,
@@ -28,9 +28,9 @@ import { extractPublicKeyBytes } from 'did-jwt'
 
 import { type DIDResolutionOptions, type VerificationMethod } from 'did-resolver'
 
-import { type IAAKey } from './AATypes.js'
+import { type IAgentKey } from './AgentTypes.js'
 
-export function compressAAIdentifierSecp256k1Keys(identifier: IIdentifier): IKey[] {
+export function compressAgentIdentifierSecp256k1Keys(identifier: IIdentifier): IKey[] {
   return identifier.keys
     .map((key: IKey) => {
       if (key.type === 'Secp256k1') {
@@ -45,7 +45,7 @@ export function compressAAIdentifierSecp256k1Keys(identifier: IIdentifier): IKey
     })
     .filter(isDefined)
 }
-export function convertAAIdentifierEncryptionKeys(identifier: IIdentifier): IKey[] {
+export function convertAgentIdentifierEncryptionKeys(identifier: IIdentifier): IKey[] {
   return identifier.keys
     .map((key: IKey) => {
       if (key.type === 'Ed25519') {
@@ -65,7 +65,7 @@ export function convertAAIdentifierEncryptionKeys(identifier: IIdentifier): IKey
     .filter(isDefined)
 }
 
-export function getAAEthereumAddress(verificationMethod: VerificationMethod): string | undefined {
+export function getAgentEthereumAddress(verificationMethod: VerificationMethod): string | undefined {
   let vmEthAddr = verificationMethod.ethereumAddress?.toLowerCase()
   if (!vmEthAddr) {
     if (verificationMethod.blockchainAccountId?.includes('@eip155')) {
@@ -85,11 +85,11 @@ export function getAAEthereumAddress(verificationMethod: VerificationMethod): st
   return vmEthAddr
 }
 
-export function compareBlockchainAccountId(localKey: IKey, verificationMethod: VerificationMethod): boolean {
+export function compareAgentId(localKey: IKey, verificationMethod: VerificationMethod): boolean {
   //if (localKey.type !== 'Secp256k1') {
   //  return false
   //}
-  let vmEthAddr = getAAEthereumAddress(verificationMethod)
+  let vmEthAddr = getAgentEthereumAddress(verificationMethod)
   const localAccount = localKey.meta?.account ?? localKey.meta?.ethereumAddress
   if (localKey.meta?.account) {
     console.info("localKey.meta.account: ", localKey.meta.account)
@@ -104,7 +104,7 @@ export function compareBlockchainAccountId(localKey: IKey, verificationMethod: V
   return computedAddr === vmEthAddr
 }
 
-export async function mapAAIdentifierKeysToDoc(
+export async function mapAgentIdentifierKeysToDoc(
   identifier: IIdentifier,
   section: DIDDocumentSection = 'keyAgreement',
   context: IAgentContext<IResolver>,
@@ -124,9 +124,9 @@ export async function mapAAIdentifierKeysToDoc(
   console.info("--- identifier keys: ", localKeys)
 
   if (section === 'keyAgreement') {
-    localKeys = convertAAIdentifierEncryptionKeys(identifier)
+    localKeys = convertAgentIdentifierEncryptionKeys(identifier)
   } else {
-    localKeys = compressAAIdentifierSecp256k1Keys(identifier)
+    localKeys = compressAgentIdentifierSecp256k1Keys(identifier)
   }
 
   console.info("--- identifier keys2: ", localKeys)
@@ -139,7 +139,7 @@ export async function mapAAIdentifierKeysToDoc(
       const localKey = localKeys.find(
         (localKey: IKey) =>
           localKey.publicKeyHex === verificationMethod.publicKeyHex ||
-          compareBlockchainAccountId(localKey, verificationMethod),
+          compareAgentId(localKey, verificationMethod),
       )
 
       console.info("localKey: ", localKey)
@@ -155,14 +155,14 @@ export async function mapAAIdentifierKeysToDoc(
   return extendedKeys
 }
 
-export class AAKeyManagementSystem extends AbstractKeyManagementSystem {
+export class AgentKeyManagementSystem extends AbstractKeyManagementSystem {
 
-  constructor(private providers: Record<string, AADidProvider>) {
+  constructor(private providers: Record<string, AgentDidProvider>) {
     super()
   }
 
   async createKey({ type }: { type: TKeyType }): Promise<ManagedKeyInfo> {
-    throw Error('not_supported: AAKeyManagementSystem cannot create new keys')
+    throw Error('not_supported: AgentKeyManagementSystem cannot create new keys')
   }
 
 

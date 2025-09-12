@@ -12,15 +12,14 @@ import type {
 const DID_LD_JSON = 'application/did+ld+json';
 const DID_JSON = 'application/did+json';
 
-function toDidDoc(did: string, blockchainAccountId: string): any {
-  const { namespace } = AccountId.parse(blockchainAccountId)
-    .chainId as ChainIdParams;
-  const vmId = did + '#blockchainAccountId';
+function toDidDoc(did: string, agentId: string): any {
+
+  const vmId = did + '#agentId';
   const doc = {
     '@context': [
       'https://www.w3.org/ns/did/v1',
       {
-        blockchainAccountId: 'https://w3id.org/security#blockchainAccountId',
+        agentId: 'https://w3id.org/security#agentId',
         EcdsaSecp256k1RecoveryMethod2020:
           'https://identity.foundation/EcdsaSecp256k1RecoverySignature2020#EcdsaSecp256k1RecoveryMethod2020',
       },
@@ -31,7 +30,7 @@ function toDidDoc(did: string, blockchainAccountId: string): any {
         id: vmId,
         type: 'EcdsaSecp256k1RecoveryMethod2020',
         controller: did,
-        blockchainAccountId,
+        agentId,
       },
     ],
     authentication: [vmId],
@@ -42,16 +41,16 @@ function toDidDoc(did: string, blockchainAccountId: string): any {
 }
 
 
-export function getAAResolver(): ResolverRegistry {
+export function getAgentResolver(): ResolverRegistry {
   return {
-    aa: async (
+    agent: async (
       did: string,
       parsed: ParsedDID,
       r: Resolvable,
       options: DIDResolutionOptions
     ): Promise<DIDResolutionResult> => {
 
-      console.info(">>>>>>>> inside aa resolver: did: ", did)
+      console.info(">>>>>>>> inside agent resolver: did: ", did)
 
       const contentType = options.accept || DID_JSON;
       const response: DIDResolutionResult = {
@@ -75,7 +74,7 @@ export function getAAResolver(): ResolverRegistry {
         response.didResolutionMetadata.message = (e as Error).message;
       }
 
-      console.info(">>>>>>>> inside aa resolver: response: ", JSON.stringify(response))
+      console.info(">>>>>>>> inside agent resolver: response: ", JSON.stringify(response))
       return response;
     },
   };

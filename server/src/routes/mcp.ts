@@ -120,7 +120,7 @@ export interface JWTVerifyOptions {
   resolver?: Resolvable
 }
 
-export async function verifyJWTEIP1271(jwt: string,
+export async function verifyAAJWTEIP1271(jwt: string,
   options: JWTVerifyOptions = {
     resolver: undefined
   }): Promise<boolean> {
@@ -161,6 +161,7 @@ export async function verifyJWTEIP1271(jwt: string,
     
       return null;
     }
+
 
     const didUrl = typeof result.didDocument?.authentication?.[0] === 'string'
       ? result.didDocument.authentication[0]
@@ -204,6 +205,7 @@ export async function verifyJWTEIP1271(jwt: string,
 
   // 4. Call isValidSignature on the smart contract
   try {
+    console.info(">>>>>>>>>>> smartAccountAddress: ", smartAccountAddress)
     const { data: isValidSignature } = await publicClient.call({
       account: smartAccountAddress as `0x${string}`,
       data: isValidSignatureData,
@@ -224,7 +226,110 @@ export async function verifyJWTEIP1271(jwt: string,
     return false;
   }
 }
+export async function verifyAgentJWTEIP1271(jwt: string,
+  options: JWTVerifyOptions = {
+    resolver: undefined
+  }): Promise<boolean> {
 
+
+
+  // 1. Decode the JWT
+  const { payload, header, data, signature } = decodeJWT(jwt); // data is "base64url(header).base64url(payload)"
+
+
+  // verify the did
+  let agentId
+  let smartAccountAddress
+
+  const DID_JSON = 'application/did+json'
+  if (payload.iss) {
+    const result = (await resolver.resolve(payload.iss, { accept: DID_JSON })) as DIDResolutionResult
+    console.info("verifier did resolver result: ", JSON.stringify(result))
+
+  
+    if (result.didResolutionMetadata?.error || result.didDocument == null) {
+      const { error, message } = result.didResolutionMetadata      
+      throw new Error(
+        `Unable to resolve DID document for ${payload.iss}`
+      )
+    }
+
+
+
+    function extractAgentIdFromDID(didUrl: string): `${string}` | null {
+      // Remove fragment if present
+      const [did] = didUrl.split('#');
+    
+      const parts = did.split(':');
+      const agentIdPart = parts[parts.length - 1];
+    
+      return agentIdPart;
+    }
+
+    const didUrl = typeof result.didDocument?.authentication?.[0] === 'string'
+      ? result.didDocument.authentication[0]
+      : result.didDocument?.authentication?.[0]?.id;
+    agentId = extractAgentIdFromDID(didUrl ?? '');
+
+  }
+  
+  // 1.b From agentId get associated smart account address
+
+
+
+  // 2. Hash the data to match EIP-1271 spec
+  const digest = hashMessage(data as `0x${string}`);
+
+  console.info("digest: ", digest)
+  console.info("signature: ", signature)
+
+  // 3. Setup viem client (Sepolia for example)
+  const isValidSignatureData = encodeFunctionData({
+    abi: [
+      {
+        name: "isValidSignature",
+        type: "function",
+        inputs: [
+          { name: "_hash", type: "bytes32" },
+          { name: "_signature", type: "bytes" },
+        ],
+        outputs: [{ type: "bytes4" }],
+        stateMutability: "view",
+      },
+    ],
+    functionName: "isValidSignature",
+    args: [digest as `0x${string}`, signature as `0x${string}`],
+  });
+
+  const publicClient = createPublicClient({
+    chain: defaultChain,
+    transport: http(),
+  });
+
+
+  // 4. Call isValidSignature on the smart contract
+  try {
+    console.info(">>>>>>>>>>> smartAccountAddress: ", smartAccountAddress)
+    const { data: isValidSignature } = await publicClient.call({
+      account: smartAccountAddress as `0x${string}`,
+      data: isValidSignatureData,
+      to: smartAccountAddress as `0x${string}`,
+    });
+
+    console.info("isValidSignature: ", isValidSignature)
+
+    if (!isValidSignature) {
+      return false
+    }
+    else {
+      const MAGIC_VALUE = '0x1626ba7e';
+      return isValidSignature.startsWith(MAGIC_VALUE);
+    }
+  } catch (err) {
+    console.error('Signature verification error:', err);
+    return false;
+  }
+}
 
 async function getBalance(address: string) {
   const balance = await provider.getBalance(address);
@@ -758,7 +863,7 @@ const handleMcpRequest: RequestHandler = async (req, res) => {
     }
   }
 
-  if (type === 'SendAADIDJWT' && process.env.SERVER_PRIVATE_KEY) {
+  if (type === 'SendAADIDJWT') {
 
     const jwt = payload.jwt as string
     if (!jwt) {
@@ -773,7 +878,52 @@ const handleMcpRequest: RequestHandler = async (req, res) => {
       const issuerDid = (claims as any)?.iss
 
       // Verify AA DID JWT (EIP-1271 path)
-      const isValid = await verifyJWTEIP1271(jwt, { resolver })
+      const isValid = await verifyAAJWTEIP1271(jwt, { resolver })
+      if (!isValid) {
+        res.status(400).json({ error: 'Invalid JWT' })
+        return
+      }
+
+      if (issuerDid) {
+        try {
+          const result = await agent.resolveDid({ didUrl: issuerDid })
+          console.info("aa did resolver result: ", result)
+        } catch (e) {
+          console.warn('DID resolve warning:', e)
+        }
+      }
+
+      res.json({
+        type: 'SendAADidConfirmation',
+        issuerDid,
+        claims,
+      })
+      return
+    } catch (e) {
+      const message = e instanceof Error ? e.message : String(e)
+      res.status(400).json({ error: 'Invalid JWT', details: message })
+      return
+    }
+
+  }
+
+
+  if (type === 'SendAgentDIDJWT') {
+
+    const jwt = payload.jwt as string
+    if (!jwt) {
+      res.status(400).json({ error: 'Missing jwt' })
+      return
+    }
+
+    try {
+      // Extract claims first
+      const decoded = decodeJWT(jwt)
+      const claims = decoded.payload as Record<string, any>
+      const issuerDid = (claims as any)?.iss
+
+      // Verify AA DID JWT (EIP-1271 path)
+      const isValid = await verifyAgentJWTEIP1271(jwt, { resolver })
       if (!isValid) {
         res.status(400).json({ error: 'Invalid JWT' })
         return
