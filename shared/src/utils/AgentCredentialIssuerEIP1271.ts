@@ -50,6 +50,7 @@ import { optimism, mainnet, sepolia, linea } from "viem/chains";
 const chain = sepolia
 
 import { getEthTypesFromInputDoc } from 'eip-712-types-generation'
+import { getRegistryAgent } from './IdentityRegistry.js'
 
 export type AgentDidParts = {
     did: string;
@@ -59,6 +60,34 @@ export type AgentDidParts = {
     agentId: string;
     fragment?: string;
   };
+
+// Extracts the numeric agentId from a verificationMethod object.
+// Accepts fields like:
+// - agentId: 'eip155:11155111:13'
+// - controller: 'did:agent:eip155:11155111:13'
+// - id: 'did:agent:eip155:11155111:13#agentId'
+function getVerMethodAgentId(verificationMethod: any): string | undefined {
+  try {
+    const vm = verificationMethod || {}
+    if (typeof vm.agentId === 'string' && vm.agentId.length > 0) {
+      const base = vm.agentId.split('#')[0]
+      const parts = base.split(':')
+      return parts[parts.length - 1]
+    }
+    const from: string | undefined =
+      (typeof vm.controller === 'string' && vm.controller) ||
+      (typeof vm.id === 'string' && vm.id) ||
+      undefined
+    if (from) {
+      const base = from.split('#')[0]
+      const parts = base.split(':')
+      if (parts.length >= 5 && parts[0] === 'did' && parts[1] === 'agent') {
+        return parts[parts.length - 1]
+      }
+    }
+  } catch {}
+  return undefined
+}
 
 export class AgentCredentialIssuerEIP1271 implements IAgentPlugin {
   readonly methods: ICredentialIssuerEIP1271
@@ -331,8 +360,10 @@ export class AgentCredentialIssuerEIP1271 implements IAgentPlugin {
     const agentId = this.parseAgentDid(did as `${string}`).agentId;
     console.info("agentId used to validate signature: ", agentId)
 
-    console.info("XXXXXXXXXXXXXXXXXXXXXX  need to get address from agentId 1")
-    const address = "0x0000000000000000000000000000000000000000"
+    // Resolve smart account address from ERC-8004 Identity Registry using agentId
+    const registryAddress = "0xD3Ef59f3Bbc1d766E3Ba463Be134B5eB29e907A0"
+    const agentInfo = await getRegistryAgent(registryAddress, BigInt(String(agentId)))
+    const address = agentInfo.agentAddress as `0x${string}`
 
     // validate signature using contract EIP-1271
     const { data: isValidSignature } = await publicClient.call({
@@ -359,8 +390,9 @@ export class AgentCredentialIssuerEIP1271 implements IAgentPlugin {
 
     if (didDocument.verificationMethod && agentId) {
       for (const verificationMethod of didDocument.verificationMethod) {
-        const ethAddress = getEthereumAddress(verificationMethod)?.toLowerCase()
-        if (ethAddress === address.toLowerCase()) {
+        const verAgentId = getVerMethodAgentId(verificationMethod)
+        console.info("XXXXXXXXXXXXXXXXXXXXXX  verAgentId: ", verAgentId, 'agentId: ', agentId)
+        if (verAgentId === agentId) {
           return true
         }
       }
@@ -423,8 +455,10 @@ export class AgentCredentialIssuerEIP1271 implements IAgentPlugin {
 
     const agentId = this.parseAgentDid(presentation.holder).agentId;
 
-        console.info("XXXXXXXXXXXXXXXXXXXXXX  need to get address from agentId 2")
-    const address = "0x0000000000000000000000000000000000000000"
+        // Resolve smart account address from ERC-8004 Identity Registry using agentId
+    const registryAddress = "0xD3Ef59f3Bbc1d766E3Ba463Be134B5eB29e907A0"
+    const agentInfo = await getRegistryAgent(registryAddress, BigInt(String(agentId)))
+    const address = agentInfo.agentAddress as `0x${string}`
 
     // validate signature using contract EIP-1271
     const { data: isValidSignature } = await publicClient.call({
@@ -453,15 +487,12 @@ export class AgentCredentialIssuerEIP1271 implements IAgentPlugin {
     if (clientDidDocument.verificationMethod && agentId) {
       console.info("gator client didDocument.verificationMethod: ", clientDidDocument.verificationMethod)
       for (const verificationMethod of clientDidDocument.verificationMethod) {
-        console.info("verificationMethod: ", verificationMethod)
+        const verAgentId = getVerMethodAgentId(verificationMethod)
+        console.info("XXXXXXXXXXXXXXXXXXXXXX  verAgentId: ", verAgentId, 'agentId: ', agentId)
+        if (verAgentId === agentId) {
+          return true
+        }
 
-        console.info("XXXXXXXXXXXXXXXXXXXXXX  need to get address from agentId 3")
-        //const ethAddress = getEthereumAddress(verificationMethod)?.toLowerCase()
-        //console.info("ethAddress: ", ethAddress)
-        //if (getEthereumAddress(verificationMethod)?.toLowerCase() === clientAddress.toLowerCase()) {
-        //  return true
-        //}
-        return true
       }
     } else {
       throw new Error('resolver_error: holder DIDDocument does not contain any verificationMethods')

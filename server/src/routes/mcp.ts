@@ -16,6 +16,7 @@ import { createPimlicoClient } from "permissionless/clients/pimlico";
 
 import { createJWT, ES256KSigner, verifyJWT  } from 'did-jwt';
 import { decodeJWT, JWTVerified } from 'did-jwt';
+import { getRegistryAgent } from '@mcp/shared'
 import { CHAIN_IDS_TO_MESSAGE_TRANSMITTER, DESTINATION_DOMAINS, CHAIN_IDS_TO_USDC_ADDRESSES, CHAIN_TO_CHAIN_NAME, CHAIN_IDS_TO_TOKEN_MESSENGER, CHAIN_IDS_TO_RPC_URLS, CHAINS, CHAIN_IDS_TO_BUNDLER_URL } from '../libs/chains.js';
 
 
@@ -286,44 +287,8 @@ export async function verifyAgentJWTEIP1271(jwt: string,
       throw new Error('Identity Registry address not configured (NEXT_PUBLIC_REGISTRY_ADDRESS or REGISTRY_ADDRESS)');
     }
 
-    const identityRegistryAbi = [
-      {
-        type: "function",
-        name: "getAgent",
-        stateMutability: "view",
-        inputs: [{ name: "agentId", type: "uint256" }],
-        outputs: [
-          {
-            name: "agentInfo",
-            type: "tuple",
-            components: [
-              { name: "agentId", type: "uint256" },
-              { name: "agentDomain", type: "string" },
-              { name: "agentAddress", type: "address" }
-            ]
-          }
-        ]
-      }
-    ] as const;
-
-    const registryClient = createPublicClient({
-      chain: defaultChain,
-      transport: http(),
-    });
-
-    const agentIdBig = (() => {
-      const idStr = String(agentId);
-      return idStr.startsWith('0x') ? BigInt(idStr) : BigInt(idStr);
-    })();
-
-    const res: any = await registryClient.readContract({
-      address: registryAddress,
-      abi: identityRegistryAbi,
-      functionName: 'getAgent',
-      args: [agentIdBig],
-    });
-
-    smartAccountAddress = res?.agentAddress as `0x${string}`;
+    const agentInfo = await getRegistryAgent(registryAddress, BigInt(String(agentId)));
+    smartAccountAddress = agentInfo.agentAddress as `0x${string}`;
     if (!smartAccountAddress) {
       throw new Error('Registry did not return an agentAddress for provided agentId');
     }
@@ -472,6 +437,46 @@ const retrieveAttestation = async (
     
 };
 
+
+const getServerAccount = async(key: string, defaultChain: any) : Promise<any> => {
+    
+  const publicClient = createPublicClient({
+    chain: defaultChain,
+    transport: http(),
+  });
+
+  if (!key) {
+    throw new Error('SERVER_PRIVATE_KEY environment variable is not set');
+  }
+
+  const rawKey = key;
+  const serverPrivateKey = (rawKey.startsWith('0x') ? rawKey : `0x${rawKey}`) as `0x${string}`;
+  
+  if (!/^0x[0-9a-fA-F]{64}$/.test(serverPrivateKey)) {
+    throw new Error('Invalid private key format. Must be 32 bytes (64 hex characters) with optional 0x prefix');
+  }
+
+  const serverAccount = privateKeyToAccount(serverPrivateKey);
+  console.info("server EOA: ", serverAccount)
+
+
+  const account = await toMetaMaskSmartAccount({
+      client: publicClient as any,
+      implementation: Implementation.Hybrid,
+      deployParams: [
+        serverAccount.address as `0x${string}`,
+        [] as string[],
+        [] as bigint[],
+        [] as bigint[]
+      ] as [owner: `0x${string}`, keyIds: string[], xValues: bigint[], yValues: bigint[]],
+      deploySalt: "0x0000000000000000000000000000000000000000000000000000000000000001",
+      signatory: { account: serverAccount as any },
+  });
+
+  console.info("server AA: ", account.address)
+  return account
+}
+
 const mintUSDC = async (
   destinationAddress: string,
   destinationChainId: number,
@@ -585,44 +590,6 @@ const handleMcpRequest: RequestHandler = async (req, res) => {
   
   
 
-  const getServerAccount = async(key: string, defaultChain: any) : Promise<any> => {
-    
-    const publicClient = createPublicClient({
-      chain: defaultChain,
-      transport: http(),
-    });
-  
-    if (!key) {
-      throw new Error('SERVER_PRIVATE_KEY environment variable is not set');
-    }
-  
-    const rawKey = key;
-    const serverPrivateKey = (rawKey.startsWith('0x') ? rawKey : `0x${rawKey}`) as `0x${string}`;
-    
-    if (!/^0x[0-9a-fA-F]{64}$/.test(serverPrivateKey)) {
-      throw new Error('Invalid private key format. Must be 32 bytes (64 hex characters) with optional 0x prefix');
-    }
-  
-    const serverAccount = privateKeyToAccount(serverPrivateKey);
-    console.info("server EOA: ", serverAccount)
-  
-  
-    const account = await toMetaMaskSmartAccount({
-        client: publicClient as any,
-        implementation: Implementation.Hybrid,
-        deployParams: [
-          serverAccount.address as `0x${string}`,
-          [] as string[],
-          [] as bigint[],
-          [] as bigint[]
-        ] as [owner: `0x${string}`, keyIds: string[], xValues: bigint[], yValues: bigint[]],
-        deploySalt: "0x0000000000000000000000000000000000000000000000000000000000000001",
-        signatory: { account: serverAccount as any },
-    });
-  
-    console.info("server AA: ", account.address)
-    return account
-  }
   
   
 
@@ -662,7 +629,7 @@ const handleMcpRequest: RequestHandler = async (req, res) => {
       const result = await agent.resolveDid({
           didUrl: clientSmartAccountDid
       })
-      console.info("gator client AA DID Document: ", result)
+      console.info("gator client Agent DID Document: ", result)
 
       // verify the Credential signature leveraging the smart account
       let verificationResult = await  agent.verifyPresentationEIP1271({
@@ -686,8 +653,10 @@ const handleMcpRequest: RequestHandler = async (req, res) => {
           console.info("make first payment to gator service provider")
 
           // get gator client AA balance
-          const gatorClientBalance = await getBalance(parseAADid(clientSmartAccountDid).address)
-          console.info("gator client AA balance 1: ", gatorClientBalance)
+          console.info("XXXXXXXXXXXXXXXXXXXXXX  clientSmartAccountDid: ", clientSmartAccountDid)
+
+          //const gatorClientBalance = await getBalance(parseAADid(clientSmartAccountDid).address)
+          //console.info("gator client AA balance 1: ", gatorClientBalance)
 
 
 
@@ -795,7 +764,7 @@ const handleMcpRequest: RequestHandler = async (req, res) => {
       const result = await agent.resolveDid({
           didUrl: clientSmartAccountDid
       })
-      console.info("gator client AA DID Document: ", result)
+      console.info("gator client Agent DID Document: ", result)
 
       // verify the Credential signature leveraging the smart account
       let verificationResult = await  agent.verifyPresentationEIP1271({

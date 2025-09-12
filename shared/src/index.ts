@@ -19,3 +19,4 @@ export * from './utils/AgentKmsSigner.js';
 export * from './utils/AgentKeyManagementSystem.js';
 export * from './utils/AgentDidProvider.js';
 export * from './utils/AgentResolver.js';
+export * from './utils/IdentityRegistry.js';
