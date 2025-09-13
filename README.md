@@ -30,7 +30,7 @@
 
 The ERC-8004 Agent DID method follows the format:
 ```
-did:aa:eip155:{chainId}:{smartAccountAddress}
+did:aa:eip155:{chainId}:{agentId}
 ```
 
 ### Core Components
@@ -58,101 +58,6 @@ did:aa:eip155:{chainId}:{smartAccountAddress}
 - **DID Document Structure**  
   The complete AA DID Document combines data from multiple sources:
 
-  1. Base Layer (from ethr-did-registry):
-  ```json
-  {
-    "@context": "https://w3id.org/did/v1",
-    "id": "did:ethr:0x5:0xAaSmartWallet123...",
-    "verificationMethod": [
-      {
-        "id": "did:ethr:0x5:0xAaSmartWallet123#controller",
-        "type": "EcdsaSecp256k1RecoveryMethod2020",
-        "controller": "did:ethr:0x5:0xAaSmartWallet123",
-        "blockchainAccountId": "eip155:5:0xAaSmartWallet123"
-      }
-    ],
-    "authentication": [
-      "did:ethr:0x5:0xAaSmartWallet123#controller"
-    ]
-  }
-  ```
-
-  2. Extended Properties (from EAS):
-  - Delegation relationships
-  - Service endpoints
-  - Organization metadata
-  - Role-based permissions
-  - Custom attestations
-
-  ```json
-  {
-    "capabilityDelegation": [
-      {
-        "id": "eas:eip155:1:0xEasContract789:0xATTUID123",
-        "type": "EASDelegation2024",
-        "controller": "did:aa:eip155:1:0xDelegateAgent456",
-        "capability": "signVerifiableCredential",
-        "easSchema": "0xSchemaUID",
-        "attestationUid": "0xATTUID123",
-        "easContract": "0xEasContract789",
-        "validFrom": 1717800000,
-        "validUntil": 1719800000
-      }
-    ]
-  }
-  ```
-
-  The DID resolver combines these sources to construct the complete DID Document.
-
-### Account Abstraction Support Capabilities 
-
-- **DID Indexing Layer (Searchable)**
-
-- **Verifiable Credential and Verifiable Presentation**
-
-  Example Verifiable Credential:
-  ```json
-  {
-    "@context": [
-      "https://www.w3.org/2018/credentials/v1"
-    ],
-    "id": "urn:uuid:${uuid}",
-    "type": [
-      "VerifiableCredential",
-      "DIDMetadataCredential"
-    ],
-    "issuer": "did:aa:eip155:11155111:0xSmartAccountAddress",
-    "issuanceDate": "2024-03-20T12:00:00Z",
-    "credentialSubject": {
-      "id": "did:aa:eip155:11155111:0xSmartAccountAddress",
-      "metadata": {
-        "category": "Organization",
-        "industry": "Healthcare",
-        "registeredRegion": "Colorado",
-        "website": "https://example.org"
-      }
-    }
-  }
-  ```
-  **Social Login**
-  Allowing users to log in using social authentication mechanisms (e.g., Google, Facebook) alongside their DID-based identifier.
-
-  **Social Recovery**
-  Social Recovery: Implementing a recovery mechanism that utilizes social accounts to recover access to the Digital Identity Wallet in case of key loss or compromise.
-
----
-
-
-## When to Use ERC-8004 Agent DIDs
-
-Use ERC-8004 Agent DID when:
-
-- You need **organization wallets** or **multi-signature control**.
-- You want **social recovery** or **modular signing**.
-- You require **gasless onboarding** or **sponsored credentials**.
-- You're integrating with **ERC-4337**, **EIP-1271**, or **ZK workflows**.
-
----
 
 ## Signature and Verification Mechanics
 
@@ -168,30 +73,8 @@ Use ERC-8004 Agent DID when:
 - **Decoupled Identity**  
   Subject/Issuer DIDs are linked to account abstraction smart contracts and not tied to a single EOA.
 
----
 
-## MyOrgWallet Integration
 
-- Ties all attestations to **organizational** and **individual account abstractions**.
-- Manages **Account Abstraction DIDs** for organizations and individuals.
-- Supports **discovery** of Account Abstraction DID Documents.
-- Captures **delegation relationships** between organizations and individuals.
-- Registers and maintains **services provided by organizations** in DID Documents.
-
----
-
-## Why ERC-8004 Agent DIDs Are Not Yet Common
-
-- **Legacy Assumptions**  
-  Traditional DID methods (`did:ethr`, `did:web`, `did:key`, `did:peer`) are designed for EOAs with static keys.
-
-- **New Identity Model**  
-  Account Abstraction (via ERC-4337) enables smart contracts to act as DIDs without holding private keys.
-
-- **Tooling Gaps**  
-  Most DID resolvers and signature verification tools assume direct access to signing keys, which smart contracts do not have.
-
----
 
 ## Veramo Extensions
 
@@ -229,13 +112,6 @@ cd server
 npx tsx src/index.ts
 ```
 
-## Features
-
-- Support for `did:aa` (Account Abstraction) DID method
-- EIP-1271 signature verification for smart contracts
-- Verifiable Credentials and Presentations using EIP-712 typed data
-- Integration with Veramo framework
-- TypeScript/ESM support
 
 ## Project Structure
 
