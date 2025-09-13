@@ -810,7 +810,7 @@ export const SendMcpMessage: React.FC<SendMcpMessageProps> = ({ onAAWalletDeploy
 
       const clientSubscriptionChainId = chain.id
       const clientSubscriberSmartAddress = clientSubscriptionAccountClient.address.toLowerCase()
-      const clientSubscriberDid = "did:aa:eip155:" + clientSubscriptionChainId + ":" + clientSubscriberSmartAddress.toLowerCase()
+      const clientSubscriberDid = "did:agent:eip155:" + clientSubscriptionChainId + ":" + clientSubscriberSmartAddress.toLowerCase()
       
       console.info("client subscription chain id: ", clientSubscriptionChainId)
       console.info("client subscriber smart account address : ", clientSubscriberSmartAddress)
@@ -925,8 +925,8 @@ export const SendMcpMessage: React.FC<SendMcpMessageProps> = ({ onAAWalletDeploy
 
       // add did and key to our agent
       await agent.didManagerImport({
-        did: clientSubscriberDid, // or did:aa if you're using a custom method
-        provider: 'did:aa:client',
+        did: clientSubscriberDid, 
+        provider: 'did:agent:client',
         alias: 'subscriber-smart-account',
         keys:[]
       })
@@ -1219,7 +1219,7 @@ export const SendMcpMessage: React.FC<SendMcpMessageProps> = ({ onAAWalletDeploy
           }
 
           const clientSubscriberSmartAddress = clientSubscriptionAccountClient.address.toLowerCase()
-          const clientSubscriberDid = "did:aa:eip155:" + chain.id + ":" + clientSubscriberSmartAddress.toLowerCase()
+          const clientSubscriberDid = "did:agent:eip155:" + chain.id + ":" + clientSubscriberSmartAddress.toLowerCase()
           console.info("client subscriber smart account address : ", clientSubscriberSmartAddress)
           console.info("client subscriber did: ", clientSubscriberDid)
 
@@ -1465,8 +1465,8 @@ export const SendMcpMessage: React.FC<SendMcpMessageProps> = ({ onAAWalletDeploy
 
           // add did and key to our agent
           await agent.didManagerImport({
-            did: clientSubscriberDid, // or did:aa if you're using a custom method
-            provider: 'did:aa:client',
+            did: clientSubscriberDid,
+            provider: 'did:agent:client',
             alias: 'subscriber-smart-account',
             keys:[]
           })

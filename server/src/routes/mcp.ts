@@ -66,7 +66,7 @@ function parseAADid(didUrl: string): AADidParts {
   const parts = baseDid.split(":");
 
   if (parts.length !== 5 || parts[0] !== "did" || parts[1] !== "aa") {
-    throw new Error(`Invalid did:aa format 1: ${didUrl}`);
+    throw new Error(`Invalid did:agent format 1: ${didUrl}`);
   }
 
   const [, method, namespace, chainId, address] = parts;
@@ -723,7 +723,7 @@ const handleMcpRequest: RequestHandler = async (req, res) => {
       return;
     }
     const serverAccount = await getServerAccount(process.env.SERVER_PRIVATE_KEY, defaultServiceCrossChainChain)
-    const serverDid = "did:aa:eip155:" + defaultServiceCrossChainChain.id + ":" + serverAccount.address
+    const serverDid = "did:agent:eip155:" + defaultServiceCrossChainChain.id + ":" + serverAccount.address
     console.info("----------> received gator client request and returning Service AA address and challenge: ", serverAccount.address)
     res.json({
         type: 'Challenge',

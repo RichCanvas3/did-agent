@@ -373,7 +373,7 @@ export const McpAgentToAgentUsdc: React.FC = () => {
 
       const clientSubscriptionChainId = chain.id
       const clientSubscriberSmartAddress = clientSubscriptionAccountClient.address.toLowerCase()
-      const clientSubscriberDid = "did:aa:eip155:" + clientSubscriptionChainId + ":" + clientSubscriberSmartAddress.toLowerCase()
+      const clientSubscriberDid = "did:agent:eip155:" + clientSubscriptionChainId + ":" + clientSubscriberSmartAddress.toLowerCase()
       
       console.info("client subscription chain id: ", clientSubscriptionChainId)
       console.info("client subscriber smart account address : ", clientSubscriberSmartAddress)
@@ -476,8 +476,8 @@ export const McpAgentToAgentUsdc: React.FC = () => {
 
       // add did and key to our agent
       await agent.didManagerImport({
-        did: clientSubscriberDid, // or did:aa if you're using a custom method
-        provider: 'did:aa:client',
+        did: clientSubscriberDid, 
+        provider: 'did:agent:client',
         alias: 'subscriber-smart-account',
         keys:[]
       })

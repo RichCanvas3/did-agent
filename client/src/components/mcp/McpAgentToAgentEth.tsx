@@ -251,7 +251,7 @@ export const McpAgentToAgentEth: React.FC = () => {
 
       const environment = clientSubscriptionAccountClient.environment;
 
-      const did = 'did:aa:eip155:11155111:' + clientSubscriptionAccountClient.address
+      const did = 'did:agent:eip155:11155111:' + clientSubscriptionAccountClient.address
 
 
 
@@ -319,9 +319,7 @@ export const McpAgentToAgentEth: React.FC = () => {
       }
 
       const clientSubscriberSmartAddress = clientSubscriptionAccountClient.address.toLowerCase()
-      //const clientSubscriberDid = "did:aa:eip155:" + chain.id + ":" + clientSubscriberSmartAddress.toLowerCase()
-      //console.info("client subscriber smart account address : ", clientSubscriberSmartAddress)
-      //console.info("client subscriber did: ", clientSubscriberDid)
+
 
       const agentId = "13"
       const clientSubscriberDid = "did:agent:eip155:" + chain.id + ":" + agentId
