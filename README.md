@@ -1,7 +1,7 @@
-# Account Abstraction DID (did:aa:eip155:...).  Verifiable Credentials, Verifiable Presentation  leveraging EIP-1271
+# ERC-8004 Agent DID (did:agent:eip155:...).  Verifiable Credentials, Verifiable Presentation  leveraging EIP-1271
 
 
-# Account Abstraction DIDs
+# ERC-8004 Agent DIDs
 
 ## Core Capabilities
 
@@ -28,7 +28,7 @@
 
 ### DID Method Specification
 
-The Account Abstraction DID method follows the format:
+The ERC-8004 Agent DID method follows the format:
 ```
 did:aa:eip155:{chainId}:{smartAccountAddress}
 ```
@@ -141,13 +141,11 @@ did:aa:eip155:{chainId}:{smartAccountAddress}
   Social Recovery: Implementing a recovery mechanism that utilizes social accounts to recover access to the Digital Identity Wallet in case of key loss or compromise.
 
 ---
-## Demonstration
 
-![Account Abstraction DID Demo](./did-aa-demo.jpg)
 
-## When to Use Account Abstraction-based DIDs
+## When to Use ERC-8004 Agent DIDs
 
-Use Account Abstraction DIDs when:
+Use ERC-8004 Agent DID when:
 
 - You need **organization wallets** or **multi-signature control**.
 - You want **social recovery** or **modular signing**.
@@ -182,7 +180,7 @@ Use Account Abstraction DIDs when:
 
 ---
 
-## Why Account Abstraction DIDs Are Not Yet Common
+## Why ERC-8004 Agent DIDs Are Not Yet Common
 
 - **Legacy Assumptions**  
   Traditional DID methods (`did:ethr`, `did:web`, `did:key`, `did:peer`) are designed for EOAs with static keys.
@@ -201,7 +199,7 @@ Planned or ongoing extensions to Veramo include:
 
 - Support for **ERC-4337 smart accounts**.
 - Signature and verification support using **ERC-1271**.
-- Management of Account Abstraction DIDs, VCs, and VPs within the Veramo agent framework.
+- Management of ERC-8004 Agent DIDs, VCs, and VPs within the Veramo agent framework.
 
 
 

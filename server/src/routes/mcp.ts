@@ -810,7 +810,7 @@ const handleMcpRequest: RequestHandler = async (req, res) => {
         return;
       }
       const serverAccount = await getServerAccount(process.env.SERVER_PRIVATE_KEY, defaultChain)
-      const clientSmartAccountDid = sanitizeHtml(payload.presentation.holder as string)
+      const clientSmartAccountDid = issuerDid
 
       console.info("gator client Agent DID: ", clientSmartAccountDid)
 

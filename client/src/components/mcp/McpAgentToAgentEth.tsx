@@ -8,6 +8,7 @@ import { agent } from '../../agents/veramoAgent';
 import { AgentKmsSigner } from '@mcp/shared';
 import { type TypedDataDomain, type TypedDataField } from 'ethers';
 import { ethers } from 'ethers';
+import { createJWT, ES256KSigner, verifyJWT, decodeJWT }  from 'did-jwt';
 
 export const McpAgentToAgentEth: React.FC = () => {
   const [response, setResponse] = useState<any>(null);
@@ -232,29 +233,12 @@ export const McpAgentToAgentEth: React.FC = () => {
     setLoading(true);
 
     try {
-      // get challenge from organization providing service, along with challenge phrase
-      const challengeResult : any = await fetch('http://localhost:3001/mcp', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-        type: 'PresentationRequest',
-        payload: {
-            action: 'ServiceSubscriptionRequest'
-        },
-        }),
-      });
-
-      const challengeData : any = await challengeResult.json()
-      console.info("........ challengeResult: ", challengeData)
 
       const loginResp = await login()
       const publicClient = createPublicClient({
         chain: chain,
         transport: http(),
       });
-
-      // generate payment delegation for service account
-      const smartServiceAccountAddress = challengeData.address
 
       const clientSubscriptionAccountClient = await getEOASmartAccount(loginResp.owner, loginResp.signatory, publicClient)
       console.info("client smart account address: ",  clientSubscriptionAccountClient.address)
@@ -266,6 +250,58 @@ export const McpAgentToAgentEth: React.FC = () => {
       setAaWalletAddress(clientSubscriptionAccountClient.address)
 
       const environment = clientSubscriptionAccountClient.environment;
+
+      const did = 'did:aa:eip155:11155111:' + clientSubscriptionAccountClient.address
+
+
+
+      // Adapter: DID-JWT signer wrapper using smart account
+      const signer = async (data: string | Uint8Array) => {
+        const sig = await clientSubscriptionAccountClient.signMessage({ message: data as `0x${string}` });
+        return sig;
+      };
+
+      // Create JWT (valid 10 minutes by default)
+      const jwt = await createJWT(
+        {
+            sub: did,
+            name: 'Alice',
+            iat: Math.floor(Date.now() / 1000),
+            exp: Math.floor(Date.now() / 1000) + 600, // expires in 10 minutes
+        },
+        {
+            alg: 'ES256K',
+            issuer: did,
+            signer,
+        }
+      );
+      
+
+
+
+      // get challenge from organization providing service, along with challenge phrase
+      const challengeResult : any = await fetch('http://localhost:3001/mcp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json',
+          Authorization: `Bearer ${jwt}`, // <-- transport-level 
+        },
+        body: JSON.stringify({
+        type: 'PresentationRequest',
+        payload: {
+            action: 'ServiceSubscriptionRequest'
+        },
+        }),
+      });
+
+      const challengeData : any = await challengeResult.json()
+      console.info("........ challengeResult: ", challengeData)
+
+
+
+      // generate payment delegation for service account
+      const smartServiceAccountAddress = challengeData.address
+
+
       const caveatBuilder = createCaveatBuilder(environment);
 
       // get list of caveat types: https://docs.gator.metamask.io/how-to/create-delegation/restrict-delegation
@@ -512,12 +548,16 @@ export const McpAgentToAgentEth: React.FC = () => {
       const vpVerified = await agent.verifyPresentationEIP1271({ presentation: vpAgent, });
       console.info("verify VP 2: ", vpVerified)
 
+
+      
+
       const res = await fetch('http://localhost:3001/mcp', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json',
+          Authorization: `Bearer ${jwt}`, // <-- transport-level
+        },
         body: JSON.stringify({
-        type: 'AskForService',
-        sender: clientSubscriberDid,
+        type: 'ProcessPayment',
         payload: {
             location: 'Erie, CO',
             service: 'Lawn Care',
