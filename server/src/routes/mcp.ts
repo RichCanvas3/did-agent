@@ -287,7 +287,12 @@ export async function verifyAgentJWTEIP1271(jwt: string,
       throw new Error('Identity Registry address not configured (NEXT_PUBLIC_REGISTRY_ADDRESS or REGISTRY_ADDRESS)');
     }
 
+    console.info(">>>>>>>>>> get registry agent: ", agentId, ", registry contract address: ", registryAddress)
     const agentInfo = await getRegistryAgent(registryAddress, BigInt(String(agentId)));
+    
+    console.info(">>>>>>>>>> agentInfo: ", agentInfo)
+    
+    
     smartAccountAddress = agentInfo.agentAddress as `0x${string}`;
     if (!smartAccountAddress) {
       throw new Error('Registry did not return an agentAddress for provided agentId');
@@ -605,13 +610,14 @@ const handleMcpRequest: RequestHandler = async (req, res) => {
 
 
   if (issuerDid.startsWith('did:agent:')) {
+    console.info("issuerDid: ", issuerDid)
     const ok = await verifyAgentJWTEIP1271(token, { resolver })
-    if (!ok) throw new Error('Invalid did JWT')
+    if (!ok) throw new Error('Invalid did:agent JWT')
     // proceed with decoded.payload (claims)
   } 
   else if (issuerDid.startsWith('did:aa:')) {
     const ok = await verifyAAJWTEIP1271(token, { resolver })
-    if (!ok) throw new Error('Invalid did JWT')
+    if (!ok) throw new Error('Invalid did:aa JWT')
     // proceed with decoded.payload (claims)
   } else {
     const verified = await verifyJWT(token, { 
