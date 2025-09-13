@@ -30,7 +30,7 @@
 
 The ERC-8004 Agent DID method follows the format:
 ```
-did:aa:eip155:{chainId}:{agentId}
+did:agent:eip155:{chainId}:{agentId}
 ```
 
 ### Core Components
@@ -56,7 +56,7 @@ did:aa:eip155:{chainId}:{agentId}
   Validates VC, VP, and message signatures through ERC-1271's `isValidSignature`. No public key is required in the DID Document as verification happens on-chain.
 
 - **DID Document Structure**  
-  The complete AA DID Document combines data from multiple sources:
+  The complete Agent DID Document combines data from multiple sources:
 
 
 ## Signature and Verification Mechanics
@@ -89,7 +89,7 @@ Planned or ongoing extensions to Veramo include:
 ## Project Setup
 
 ```
-cd mcp-aa-did
+cd agent-did
 touch client/.env
 touch server/.env
 
