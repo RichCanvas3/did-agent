@@ -44,18 +44,50 @@ const RootPage: React.FC = () => {
   return (
     <div className="root-page">
       <div className="content">
-        <h1>Agent DID (did:agent:eip155:1:10002)</h1>
+        <h1>MCP · ERC-8004 Identity Registry · did:agent · Veramo (JWT, VC, VP)</h1>
 
-        <h2>Core Capabilities</h2>
+        <h2>Introduction</h2>
+        <p>
+          This work introduces a standards-based framework for agent identity and service interaction that
+          brings together <strong>ERC-8004</strong>, <strong>did:agent</strong>, and <strong>Veramo</strong>.
+          The core technology establishes globally unique on-chain agent identities anchored in the
+          ERC-8004 Identity Registry, extended with Veramo to support resolution, signing, and verification
+          across DID networks.
+        </p>
+        <p>
+          The approach enables authenticated agent-to-service interactions using JWT, Verifiable Credentials (VCs),
+          and Verifiable Presentations (VPs), with native support for Account Abstraction (AA), ERC-1271 validation,
+          and cryptographically verifiable actions.
+        </p>
+
+        <h2>Two Key Use Cases</h2>
+        <h3>1) MCP Request: Client Agent Authenticating with a Service Tool</h3>
         <ul>
-          <li>ERC-8004 Agent Identity: Globally unique on-chain <code>agentId</code> anchors the <code>did:agent</code>.</li>
-          <li>Controller Portability: Rotate keys or change controllers without changing the DID.</li>
-          <li>Fine-Grained Delegation: Assign roles/capabilities to delegates; enforce via AA + ERC-1271.</li>
-          <li>Interoperable Messaging: Clear Subject/Issuer for VCs/VPs across agents (MCP).</li>
-          <li>Verifiable Actions: EIP-712 signing and on-chain validation via <code>isValidSignature</code>.</li>
-          <li>Discoverable Services: Publish agent services/capabilities for automated integration.</li>
-          <li>UX & Gas Options: Paymasters, batching, and sponsorship for seamless on-chain calls.</li>
-          <li>Auditability: On-chain provenance and attestations enable traceability and revocation.</li>
+          <li>A client agent uses its <code>did:agent</code> identity to generate a signed JWT.</li>
+          <li>The JWT is included in an MCP <code>AskForService</code> request to authenticate and authorize the interaction.</li>
+          <li>The service tool validates the JWT against the ERC-8004 registry via Veramo.</li>
+          <li>Enables secure discovery, negotiation, and exchange of proposals between agents and MCP services.</li>
+        </ul>
+
+        <h3>2) MCP Payment: Getting Services and Making Payments</h3>
+        <ul>
+          <li>Upon proposal acceptance, the client agent commits to a <code>ServiceRequest</code>.</li>
+          <li>Payment is processed using JWTs plus VCs/VPs to prove compliance, authority, or entitlements.</li>
+          <li>Final settlement moves ETH or tokens via the client AA wallet, validated with ERC-1271.</li>
+          <li>Identity and value transfer are cryptographically bound, auditable, and anchored in ERC-8004.</li>
+        </ul>
+
+        <h2>Core Technology & Capabilities</h2>
+        <ul>
+          <li><strong>ERC-8004 Agent Identity</strong>: on-chain <code>agentId</code> anchoring the <code>did:agent</code> identifier.</li>
+          <li><strong>did:agent Method</strong>: deterministic DID format binding directly to ERC-8004 <code>agentId</code>.</li>
+          <li><strong>Veramo Agent Extension</strong>: ERC-8004 resolver + support for AA, ERC-1271, VCs, VPs.</li>
+          <li><strong>MCP Integration</strong>: structured interactions (AskForService, ServiceRequest, ProcessPayment) authenticated by JWTs and enriched with credentials.</li>
+          <li><strong>Interoperable Security</strong>: cryptographic guarantees for discovery, negotiation, and execution.</li>
+          <li><strong>Fine-Grained Delegation</strong>: roles/capabilities enforced via AA + ERC-1271.</li>
+          <li><strong>Verifiable Actions</strong>: EIP-712 signing, on-chain <code>isValidSignature</code> checks.</li>
+          <li><strong>Operational UX</strong>: Paymasters, batching, sponsorship for seamless on-chain calls.</li>
+          <li><strong>Auditability</strong>: on-chain attestations for provenance and revocation.</li>
         </ul>
 
         <h2>Signature and Verification Mechanics</h2>
@@ -68,10 +100,10 @@ const RootPage: React.FC = () => {
         </ul>
 
 
-        <h2>Veramo Agent Shared Package</h2>
-        <p>Extend Veramo's capabilities to support:</p>
+        <h2>Veramo</h2>
+        <p>Extended to support:</p>
         <ul>
-          <li>Agent DID Methods (e.g. <code>did:agent:eip155:1:10002</code>)</li>
+          <li>did:agent DID Method</li>
           <li>ERC-4337 signing and delegation flows</li>
           <li>ERC-1271-compatible VC and VP issuance/verification</li>
           <li>Integration with popular DID resolution networks</li>

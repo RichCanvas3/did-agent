@@ -906,11 +906,12 @@ const handleMcpRequest: RequestHandler = async (req, res) => {
           console.info("gator service AA balance: ", gatorServiceBalance)
 
           res.json({
-            type: 'ServiceRequestConfirmation',
+            type: 'ProcessPaymentConfirmation',
             services: [
               { name: 'Gator Lawn Service', location: 'Erie', confirmation: "request processed" }
             ],
           })
+          return
         } 
       }
       else {
@@ -921,6 +922,7 @@ const handleMcpRequest: RequestHandler = async (req, res) => {
     } catch (error) {
       console.error("Error processing request:", error)
       res.status(500).json({ error: 'Internal server error' })
+      return
     }
 
 
@@ -953,14 +955,7 @@ const handleMcpRequest: RequestHandler = async (req, res) => {
     await mintUSDC(serviceAddress, serviceChainId, attestation);
     */
 
-    res.json({
-      type: 'ProcessPayment',
-      services: [
-        { name: 'Gator Lawn Service', location: 'Erie', confirmation: "payment processed" }
-      ],
-    })
-
-    return
+    // removed trailing response to avoid double-send
   }
 
   if (type === 'SendWebDIDJWT') {
