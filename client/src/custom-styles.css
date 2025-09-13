@@ -3,8 +3,14 @@ div.main-header {
   color: #ffffff;
   width: calc(100vw - 40px);
   text-align: center;
-  padding: 20px;
+  padding: 12px;
   margin: 0px;
+}
+h2.main-header-text,
+h3.main-header-text,
+.main-header-text {
+  margin: 4px 0;
+  line-height: 1.2;
 }
 
 h1.main-header-text {
@@ -14,7 +20,7 @@ h1.main-header-text {
 div.content {
   color: #121212;
   min-width: 200px;
-  max-width: 900px;
+  max-width: 1200px;
   padding: 10px;
   margin: 0 auto;
 }
@@ -27,7 +33,7 @@ button.service-button:hover {
 
 nav.main-nav {
   display: flex;
-  padding: 20px;
+  padding: 8px;
   justify-content: center;
 }
 
@@ -38,7 +44,7 @@ ul.main-nav-ul {
   flex-wrap: wrap;
   justify-content: center;
   gap: 8px;
-  max-width: 800px;
+  max-width: 1200px;
 }
 
 li.main-nav-li {

@@ -4,9 +4,10 @@ const Header: React.FC = () => {
   return (
     <div style={{ maxWidth: '100vw'}}>
       <div className='main-header'>
-        <h1 className='main-header-text'>Agent DID (did:agent:eip155:1:1002)</h1>
+        <h2 className='main-header-text'>MCP Client Agent: Handyman Services </h2>
+        <h3 className='main-header-text'>ERC-8004 did:agent --- JWT auth, VC, VP and Payment </h3>
       </div>
-
+      <div>&nbsp;</div>
       <nav className='main-nav'>
         <ul className='main-nav-ul'>
 

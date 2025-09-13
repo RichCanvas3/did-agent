@@ -209,7 +209,7 @@ export async function verifyAAJWTEIP1271(jwt: string,
 
   // 4. Call isValidSignature on the smart contract
   try {
-    console.info(">>>>>>>>>>> smartAccountAddress: ", smartAccountAddress)
+    console.info(">>>>>>>>>>> smartAccountAddress 1: ", smartAccountAddress)
     const { data: isValidSignature } = await publicClient.call({
       account: smartAccountAddress as `0x${string}`,
       data: isValidSignatureData,
@@ -329,7 +329,7 @@ export async function verifyAgentJWTEIP1271(jwt: string,
 
   // 4. Call isValidSignature on the smart contract
   try {
-    console.info(">>>>>>>>>>> smartAccountAddress: ", smartAccountAddress)
+    console.info(">>>>>>>>>>> smartAccountAddress 2: ", smartAccountAddress)
     const { data: isValidSignature } = await publicClient.call({
       account: smartAccountAddress as `0x${string}`,
       data: isValidSignatureData,
@@ -604,14 +604,26 @@ const handleMcpRequest: RequestHandler = async (req, res) => {
   const issuerDid = (claims as any)?.iss
 
 
+  if (issuerDid.startsWith('did:agent:')) {
+    const ok = await verifyAgentJWTEIP1271(token, { resolver })
+    if (!ok) throw new Error('Invalid did JWT')
+    // proceed with decoded.payload (claims)
+  } 
+  else if (issuerDid.startsWith('did:aa:')) {
+    const ok = await verifyAAJWTEIP1271(token, { resolver })
+    if (!ok) throw new Error('Invalid did JWT')
+    // proceed with decoded.payload (claims)
+  } else {
+    const verified = await verifyJWT(token, { 
+      resolver,
+      audience: "did:web:richcanvas3.com", })
+    console.info("**** verified: ", verified)
+    // proceed with verified.payload
+  }
+
+
   console.log('✅ Verified from:', issuerDid);
   console.log('Claims:', decoded.payload);
-
-  const verified = await verifyJWT(token, {
-    resolver: resolver,
-    audience: issuerDid,
-  })
-
 
   const challenge = 'hello world ....' // make this random in real world implementation
   if (type == 'PresentationRequest') {
@@ -639,13 +651,6 @@ const handleMcpRequest: RequestHandler = async (req, res) => {
     const claims = decoded.payload as Record<string, any>
     const issuerDid = (claims as any)?.iss
 
-    // Verify agent DID JWT (EIP-1271 path)
-    console.info("verify agent DID JWT (EIP-1271 path)")
-    const isValid = await verifyAgentJWTEIP1271(token, { resolver })
-    if (!isValid) {
-      res.status(400).json({ error: 'Invalid JWT' })
-      return
-    }
 
     if (issuerDid) {
       console.info("valid did: ", issuerDid)
@@ -658,11 +663,55 @@ const handleMcpRequest: RequestHandler = async (req, res) => {
     }
 
     console.info("return agent did confirmation")
-    res.json({
-      type: 'SendAgentDidConfirmation',
-      issuerDid,
-      claims,
-    })
+    res.json(
+      {
+        "type": "AskForService",
+        "action": "ServiceProposalRequest",
+        "service": {
+          "category": "handyman",               // e.g., handyman | plumbing | electrical
+          "subtype": "tv-mounting",             // free text or enum you define
+          "description": "Mount 65\" TV on drywall over fireplace.",
+          "tasks": ["Locate studs", "Install mount", "Cable concealment"]
+        },
+        "job": {
+          "location": {
+            "kind": "onsite",
+            "address": "123 Main St, Denver, CO 80202",
+            "geo": { "lat": 39.748, "lng": -104.995 }
+          },
+          "access": { "parking": "street", "gateCode": null, "pets": "small dog" },
+          "time": {
+            "windows": [
+              { "start": "2025-09-16T15:00:00-06:00", "end": "2025-09-16T18:00:00-06:00" }
+            ],
+            "flexible": true,
+            "urgency": "normal"                // asap | normal | scheduled
+          },
+          "materials": {
+            "providedByClient": ["TV 65in", "Slim wall mount"],
+            "requestedFromPro": ["HDMI 8ft", "Cord cover kit"]
+          },
+          "evidence": { "photos": ["https://…/fireplace.jpg"] }
+        },
+        "commercial": {
+          "budget": { "currency": "USD", "max": 250 },
+          "pricingPreference": "fixed",         // fixed | hourly
+          "taxExempt": false
+        },
+        "compliance": {
+          "credentialsRequired": ["insured"],   // e.g., licensed-electrician, insured, bonded
+          "liabilityCoverageMinUSD": 500000
+        },
+        "prefs": {
+          "language": "en",
+          "providerDistanceMaxMi": 25,
+          "ratingMin": 4.0
+        },
+        "negotiation": {
+          "acceptPartial": false,
+          "deadline": "2025-09-15T23:59:59-06:00"
+        }
+      })
 
     return
   }
