@@ -21,6 +21,52 @@ export const JwtActions: React.FC = () => {
   const [loading, setLoading] = useState<string | null>(null);
   const [response, setResponse] = useState<any>(null);
 
+
+  const publicClient = createPublicClient({
+    chain: defaultChain,
+    transport: http(),
+  });
+
+  const getServerAccount = async(key: string) : Promise<any> => {
+      
+    const publicClient = createPublicClient({
+      chain: defaultChain,
+      transport: http(),
+    });
+
+    if (!key) {
+      throw new Error('SERVER_PRIVATE_KEY environment variable is not set');
+    }
+
+    const rawKey = key;
+    const serverPrivateKey = (rawKey.startsWith('0x') ? rawKey : `0x${rawKey}`) as `0x${string}`;
+    
+    if (!/^0x[0-9a-fA-F]{64}$/.test(serverPrivateKey)) {
+      throw new Error('Invalid private key format. Must be 32 bytes (64 hex characters) with optional 0x prefix');
+    }
+
+    const serverAccount = privateKeyToAccount(serverPrivateKey);
+    console.info("server EOA: ", serverAccount)
+
+
+    const account = await toMetaMaskSmartAccount({
+        client: publicClient as any,
+        implementation: Implementation.Hybrid,
+        deployParams: [
+          serverAccount.address as `0x${string}`,
+          [] as string[],
+          [] as bigint[],
+          [] as bigint[]
+        ] as [owner: `0x${string}`, keyIds: string[], xValues: bigint[], yValues: bigint[]],
+        deploySalt: "0x0000000000000000000000000000000000000000000000000000000000000101",
+        signatory: { account: serverAccount as any },
+    });
+
+    console.info("server AA: ", account.address)
+    return account
+  }
+
+
   const handleSendWebDIDJWT = async () => {
     setLoading('web');
     setResponse(null);
@@ -135,53 +181,6 @@ export const JwtActions: React.FC = () => {
     }
   };
 
-
-  const publicClient = createPublicClient({
-    chain: defaultChain,
-    transport: http(),
-  });
-
-const getServerAccount = async(key: string) : Promise<any> => {
-    
-  const publicClient = createPublicClient({
-    chain: defaultChain,
-    transport: http(),
-  });
-
-  if (!key) {
-    throw new Error('SERVER_PRIVATE_KEY environment variable is not set');
-  }
-
-  const rawKey = key;
-  const serverPrivateKey = (rawKey.startsWith('0x') ? rawKey : `0x${rawKey}`) as `0x${string}`;
-  
-  if (!/^0x[0-9a-fA-F]{64}$/.test(serverPrivateKey)) {
-    throw new Error('Invalid private key format. Must be 32 bytes (64 hex characters) with optional 0x prefix');
-  }
-
-  const serverAccount = privateKeyToAccount(serverPrivateKey);
-  console.info("server EOA: ", serverAccount)
-
-
-  const account = await toMetaMaskSmartAccount({
-      client: publicClient as any,
-      implementation: Implementation.Hybrid,
-      deployParams: [
-        serverAccount.address as `0x${string}`,
-        [] as string[],
-        [] as bigint[],
-        [] as bigint[]
-      ] as [owner: `0x${string}`, keyIds: string[], xValues: bigint[], yValues: bigint[]],
-      deploySalt: "0x0000000000000000000000000000000000000000000000000000000000000101",
-      signatory: { account: serverAccount as any },
-  });
-
-  console.info("server AA: ", account.address)
-  return account
-}
-
- 
-
   const handleSendAADIDJWT = async () => {
     setLoading('aa');
     setResponse(null);
@@ -273,10 +272,14 @@ const getServerAccount = async(key: string) : Promise<any> => {
 
       const challengeResult: any = await fetch('http://localhost:3001/mcp', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${jwt}`, // <-- transport-level
+        },
         body: JSON.stringify({
-          type: 'SendAgentDIDJWT',
-          payload: { action: 'ServiceSubscriptionRequest', jwt: jwt },
+          type: 'AskForService',
+          payload: { action: 'ServiceSubscriptionRequest' },
         }),
       });
       const challengeData: any = await challengeResult.json();

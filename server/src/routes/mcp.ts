@@ -583,15 +583,35 @@ const mintUSDC = async (
 
 
 const handleMcpRequest: RequestHandler = async (req, res) => {
+
   console.info("***********  handleMcpRequest ****************", req.body);
   const { type, sender, payload } = req.body
 
+  // verify the jwt
+  const authHeader = req.headers['authorization'];
+  const headerValue = Array.isArray(authHeader) ? authHeader[0] : authHeader;
 
-  
-  
+  const token = headerValue && headerValue.startsWith('Bearer ')
+    ? headerValue.slice(7).trim()
+    : null;
 
+  if (!token) {
+    return res.status(401).json({ error: 'Missing Authorization: Bearer <jwt>' });
+  }
   
-  
+  const decoded = decodeJWT(token)
+  const claims = decoded.payload as Record<string, any>
+  const issuerDid = (claims as any)?.iss
+
+
+  console.log('✅ Verified from:', issuerDid);
+  console.log('Claims:', decoded.payload);
+
+  const verified = await verifyJWT(token, {
+    resolver: resolver,
+    audience: issuerDid,
+  })
+
 
   const challenge = 'hello world ....' // make this random in real world implementation
   if (type == 'PresentationRequest') {
@@ -611,7 +631,129 @@ const handleMcpRequest: RequestHandler = async (req, res) => {
 
 
   if (type === 'AskForService') {
+
+    console.info("AskForService request received")
+
+    console.info("get did and claims from jwt")
+    const decoded = decodeJWT(token)
+    const claims = decoded.payload as Record<string, any>
+    const issuerDid = (claims as any)?.iss
+
+    // Verify agent DID JWT (EIP-1271 path)
+    console.info("verify agent DID JWT (EIP-1271 path)")
+    const isValid = await verifyAgentJWTEIP1271(token, { resolver })
+    if (!isValid) {
+      res.status(400).json({ error: 'Invalid JWT' })
+      return
+    }
+
+    if (issuerDid) {
+      console.info("valid did: ", issuerDid)
+      try {
+        const result = await agent.resolveDid({ didUrl: issuerDid })
+        console.info("agent did resolver result: ", result)
+      } catch (e) {
+        console.warn('DID resolve warning:', e)
+      }
+    }
+
+    console.info("return agent did confirmation")
+    res.json({
+      type: 'SendAgentDidConfirmation',
+      issuerDid,
+      claims,
+    })
+
+    return
+  }
+
+  // these mcp request support cross chain service requests and payment processing
+  if (type == 'ServiceRequest') {
+    if (!process.env.SERVER_PRIVATE_KEY) {
+      res.status(500).json({ error: 'SERVER_PRIVATE_KEY environment variable is not set' });
+      return;
+    }
+    const serverAccount = await getServerAccount(process.env.SERVER_PRIVATE_KEY, defaultServiceCrossChainChain)
+    const serverDid = "did:aa:eip155:" + defaultServiceCrossChainChain.id + ":" + serverAccount.address
+    console.info("----------> received gator client request and returning Service AA address and challenge: ", serverAccount.address)
+    res.json({
+        type: 'Challenge',
+        challenge: challenge,
+        did: serverDid
+    })
+    return
+  }
+
+  if (type === 'AskForServiceProposal') {
     try {
+      console.info("----------> received gator client service request with VC containing recuring payment information ")
+
+      const clientSmartAccountDid = sanitizeHtml(payload.presentation.holder as string)
+
+      console.info("gator client Agent DID: ", clientSmartAccountDid)
+
+      const presentation = payload.presentation
+
+      // get DID Document associated with client requesting service
+      const result = await agent.resolveDid({
+          didUrl: clientSmartAccountDid
+      })
+      console.info("gator client Agent DID Document: ", result)
+
+      // verify the Credential signature leveraging the smart account
+      let verificationResult = await  agent.verifyPresentationEIP1271({
+            presentation
+      })
+      verificationResult = true
+      console.info("gator client Verifiable Presentation and VC validity: ", verificationResult)
+
+      if (verificationResult) {
+
+        console.info("gator client presentation is valid, process the payment held in the verifiable credential 2")
+
+        const vc = JSON.parse(presentation.verifiableCredential[0])
+        console.info("gator client VC: ", vc)
+        const fundsAvailable = JSON.parse(vc.credentialSubject.fundsAvailable)
+
+        console.info("funds available: ", fundsAvailable)
+
+
+        if (fundsAvailable) {
+
+
+          // get gator client AA balance
+          const gatorClientBalance = await getBalance(parseAADid(clientSmartAccountDid).address)
+          console.info("gator client AA balance 2: ", gatorClientBalance)
+
+
+
+          res.json({
+            type: 'ServiceRequestConfirmation',
+            services: [
+              { name: 'Gator Lawn Service', location: 'Erie', confirmation: "request processed" }
+            ],
+          })
+        } 
+      }
+      else {
+        console.error("verification failed")
+        res.status(400).json({ error: 'Verification failed' })
+        return
+      }
+    } catch (error) {
+      console.error("Error processing request:", error)
+      res.status(500).json({ error: 'Internal server error' })
+    }
+    return
+  }
+
+  if (type === 'ProcessPayment') {
+
+
+    // ETH payment processing
+
+    try {
+      
       console.info("----------> received gator client service request with VC containing recuring payment information ")
 
       if (!process.env.SERVER_PRIVATE_KEY) {
@@ -731,88 +873,10 @@ const handleMcpRequest: RequestHandler = async (req, res) => {
       console.error("Error processing request:", error)
       res.status(500).json({ error: 'Internal server error' })
     }
-    return
-  }
-
-  // these mcp request support cross chain service requests and payment processing
-  if (type == 'ServiceRequest') {
-    if (!process.env.SERVER_PRIVATE_KEY) {
-      res.status(500).json({ error: 'SERVER_PRIVATE_KEY environment variable is not set' });
-      return;
-    }
-    const serverAccount = await getServerAccount(process.env.SERVER_PRIVATE_KEY, defaultServiceCrossChainChain)
-    const serverDid = "did:aa:eip155:" + defaultServiceCrossChainChain.id + ":" + serverAccount.address
-    console.info("----------> received gator client request and returning Service AA address and challenge: ", serverAccount.address)
-    res.json({
-        type: 'Challenge',
-        challenge: challenge,
-        did: serverDid
-    })
-    return
-  }
-  if (type === 'AskForServiceProposal') {
-    try {
-      console.info("----------> received gator client service request with VC containing recuring payment information ")
-
-      const clientSmartAccountDid = sanitizeHtml(payload.presentation.holder as string)
-
-      console.info("gator client Agent DID: ", clientSmartAccountDid)
-
-      const presentation = payload.presentation
-
-      // get DID Document associated with client requesting service
-      const result = await agent.resolveDid({
-          didUrl: clientSmartAccountDid
-      })
-      console.info("gator client Agent DID Document: ", result)
-
-      // verify the Credential signature leveraging the smart account
-      let verificationResult = await  agent.verifyPresentationEIP1271({
-            presentation
-      })
-      verificationResult = true
-      console.info("gator client Verifiable Presentation and VC validity: ", verificationResult)
-
-      if (verificationResult) {
-
-        console.info("gator client presentation is valid, process the payment held in the verifiable credential 2")
-
-        const vc = JSON.parse(presentation.verifiableCredential[0])
-        console.info("gator client VC: ", vc)
-        const fundsAvailable = JSON.parse(vc.credentialSubject.fundsAvailable)
-
-        console.info("funds available: ", fundsAvailable)
 
 
-        if (fundsAvailable) {
-
-
-          // get gator client AA balance
-          const gatorClientBalance = await getBalance(parseAADid(clientSmartAccountDid).address)
-          console.info("gator client AA balance 2: ", gatorClientBalance)
-
-
-
-          res.json({
-            type: 'ServiceRequestConfirmation',
-            services: [
-              { name: 'Gator Lawn Service', location: 'Erie', confirmation: "request processed" }
-            ],
-          })
-        } 
-      }
-      else {
-        console.error("verification failed")
-        res.status(400).json({ error: 'Verification failed' })
-        return
-      }
-    } catch (error) {
-      console.error("Error processing request:", error)
-      res.status(500).json({ error: 'Internal server error' })
-    }
-    return
-  }
-  if (type === 'ProcessPayment') {
+    /*
+    // USDC payment processing
     console.info("***********  ProcessPayment ****************", payload);
     const transactionHash = payload.transactionHash
     const clientDid = payload.clientDid
@@ -838,6 +902,7 @@ const handleMcpRequest: RequestHandler = async (req, res) => {
 
     console.info("***********  mint USDC attestation ****************", attestation);
     await mintUSDC(serviceAddress, serviceChainId, attestation);
+    */
 
     res.json({
       type: 'ProcessPayment',

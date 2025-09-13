@@ -218,6 +218,8 @@ git switch caveats-instead-of-permissions
 
 pnpm install
 pnpm i --save-dev @types/debug -w
+
+# to build shared folder with veramo did:agent and did:aa stuff
 pnpm run build
 
 open http:localhost:5173

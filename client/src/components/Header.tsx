@@ -14,10 +14,10 @@ const Header: React.FC = () => {
             <li className='main-nav-li'> Intro </li>
           </a>
           <a className='main-nav-link' href="/jwt">
-            <li className='main-nav-li'> JWT Transfer </li>
+            <li className='main-nav-li'> MCP Request </li>
           </a>
           <a className='main-nav-link' href="/eth">
-            <li className='main-nav-li'> ETH Transfer </li>
+            <li className='main-nav-li'> MCP Payment </li>
           </a>
 
 
